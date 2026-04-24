@@ -12,7 +12,7 @@ interface TrialContextType {
 
 const TrialContext = createContext<TrialContextType | undefined>(undefined)
 
-const TRIAL_STORAGE_KEY = "papira_trial_used"
+const TRIAL_STORAGE_KEY = "formwise_trial_used"
 const MAX_FREE_USES = 1
 
 export function TrialProvider({ children }: { children: ReactNode }) {

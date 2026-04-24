@@ -19,8 +19,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const AUTH_STORAGE_KEY = "papira_auth_user"
-const USERS_STORAGE_KEY = "papira_users"
+const AUTH_STORAGE_KEY = "formwise_auth_user"
+const USERS_STORAGE_KEY = "formwise_users"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)

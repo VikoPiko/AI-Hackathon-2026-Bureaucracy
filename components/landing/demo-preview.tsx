@@ -49,7 +49,7 @@ export function DemoPreview({ onSubmit, isLoading }: DemoPreviewProps) {
               Try it now
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Ask any question about bureaucratic procedures and see how Papira can help.
+              Ask any question about bureaucratic procedures and see how FormWise can help.
             </p>
           </div>
 

@@ -6,7 +6,7 @@ import { Hero } from "@/components/landing/hero"
 import { Features } from "@/components/landing/features"
 import { DemoPreview } from "@/components/landing/demo-preview"
 import { FloatingElements } from "@/components/landing/floating-elements"
-import { PapiraHelper } from "@/components/ui/papira-helper"
+import { FormWiseClippy } from "@/components/ui/formwise-clippy"
 import { AnswerDisplay } from "@/components/app/answer-display"
 import { useTrial } from "@/lib/trial/context"
 import { useAuth } from "@/lib/auth/context"
@@ -203,7 +203,7 @@ export default function LandingPage() {
                     </motion.div>
                     <h3 className="text-xl font-semibold">Create a free account</h3>
                     <p className="text-muted-foreground">
-                      You&apos;ve used your free trial. Create an account to continue using Papira
+                      You&apos;ve used your free trial. Create an account to continue using FormWise
                       and track your bureaucratic processes.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -240,7 +240,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
-                Papira - AI-powered bureaucracy navigation
+                FormWise - AI-powered bureaucracy navigation
               </p>
               <p className="text-sm text-muted-foreground">
                 Built for those navigating complex processes
@@ -250,8 +250,8 @@ export default function LandingPage() {
         </footer>
       </main>
 
-      {/* Papira Helper (Clippy-like) */}
-      <PapiraHelper initialDelay={8000} />
+      {/* FormWise Clippy Helper */}
+      <FormWiseClippy initialDelay={8000} />
     </div>
   )
 }
