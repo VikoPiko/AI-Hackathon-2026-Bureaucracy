@@ -73,7 +73,7 @@ export default function AskPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-2"
       >
-        <h1 className="text-3xl font-bold tracking-tight">Ask Papira</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Ask FormWise</h1>
         <p className="text-muted-foreground">
           Ask any question about bureaucratic procedures and get step-by-step guidance.
         </p>

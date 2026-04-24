@@ -4,6 +4,7 @@ import Link from "next/link"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { CountrySelector } from "./country-selector"
+import { ThemePicker } from "@/components/ui/theme-picker"
 import { useAuth } from "@/lib/auth/context"
 import { FileText } from "lucide-react"
 
@@ -22,10 +23,11 @@ export function Header() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-transform group-hover:scale-105">
             <FileText className="h-5 w-5" />
           </div>
-          <span className="text-xl font-semibold tracking-tight">Papira</span>
+          <span className="text-xl font-semibold tracking-tight">FormWise</span>
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          <ThemePicker />
           <CountrySelector />
           
           {!isLoading && (

@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { ThemePicker } from "@/components/ui/theme-picker"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -89,7 +90,7 @@ export default function AppLayout({
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <FileText className="h-5 w-5" />
             </div>
-            <span className="text-xl font-semibold">Papira</span>
+            <span className="text-xl font-semibold">FormWise</span>
           </Link>
           <Button
             variant="ghost"
@@ -167,6 +168,7 @@ export default function AppLayout({
           
           <div className="flex-1" />
           
+          <ThemePicker />
           <CountrySelector />
         </header>
 
