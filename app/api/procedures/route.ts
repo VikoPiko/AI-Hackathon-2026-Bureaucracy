@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { ChromaClient, IncludeEnum } from 'chromadb';
-=======
 import type { Where } from 'chromadb';
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
 import type { ProcedureSummary } from '@/lib/types';
 import { getProceduresCollection, GET_INCLUDE } from '@/lib/rag';
 
@@ -36,13 +32,8 @@ export async function GET(req: Request) {
   }
 
   const results = await collection.get({
-<<<<<<< HEAD
-    where: Object.keys(where).length ? where : undefined,
-    include: [IncludeEnum.Metadatas],
-=======
     where,
     include: [...GET_INCLUDE],
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
     limit: 500,
   });
 
