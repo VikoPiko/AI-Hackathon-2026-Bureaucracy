@@ -1,19 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { BrowseCategories, type Category } from "@/components/app/browse-categories"
+import { BrowseCategories, categories, type Category } from "@/components/app/browse-categories"
 import { ProcedureList } from "@/components/app/procedure-list"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Sparkles, ArrowRight, X } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
-export default function BrowsePage() {
+function BrowsePageInner() {
   const router = useRouter()
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const searchParams = useSearchParams()
+  const initialCategoryId = searchParams.get("category")
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    initialCategoryId ? categories.find((c) => c.id === initialCategoryId) ?? null : null
+  )
   const [showAskPrompt, setShowAskPrompt] = useState(false)
+
+  useEffect(() => {
+    if (initialCategoryId) {
+      const found = categories.find((c) => c.id === initialCategoryId)
+      if (found) setSelectedCategory(found)
+    }
+  }, [initialCategoryId])
 
   const handleSelectProcedure = (procedure: { name: string }) => {
     // Navigate to ask page with the procedure as a query
@@ -114,5 +125,13 @@ export default function BrowsePage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
+      <BrowsePageInner />
+    </Suspense>
   )
 }
