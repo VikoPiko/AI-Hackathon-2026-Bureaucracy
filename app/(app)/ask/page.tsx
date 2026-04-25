@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
+import { toast } from "sonner"
 import { AskInput } from "@/components/app/ask-input"
 import { AnswerDisplay } from "@/components/app/answer-display"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,33 +18,35 @@ const suggestions = [
   "What is the process to renew my passport?",
 ]
 
-export default function AskPage() {
+function AskPageInner() {
+  const searchParams = useSearchParams()
+  const initialQ = searchParams.get("q") ?? ""
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState<BureaucracyResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastQuestion, setLastQuestion] = useState<string>("")
+  const [prefill, setPrefill] = useState<string>(initialQ)
 
   const handleSubmit = async (question: string, file?: File) => {
     setIsLoading(true)
     setError(null)
     setLastQuestion(question)
+    setPrefill("")
+
+    const loadingToast = toast.loading("Analyzing your question...", {
+      description: "FormWise is structuring the procedure for you.",
+    })
 
     try {
-      // TODO: Handle file upload with UploadThing
       let documentContext: string | undefined
       if (file) {
-        // For now, just note that a file was attached
         documentContext = `User attached a file: ${file.name} (${file.type})`
       }
 
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          question, 
-          country: "Bulgaria",
-          documentContext 
-        }),
+        body: JSON.stringify({ question, country: "Bulgaria", documentContext }),
       })
 
       if (!res.ok) {
@@ -51,18 +55,35 @@ export default function AskPage() {
 
       const data = await res.json()
       setResponse(data.response)
+      toast.success("Answer ready", {
+        id: loadingToast,
+        description: "Step-by-step guidance below.",
+      })
     } catch (err) {
       console.error("Analysis error:", err)
       setError("Failed to analyze your question. Please try again.")
+      toast.error("Couldn't fetch the answer", {
+        id: loadingToast,
+        description: "Check your connection and try again.",
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Auto-submit if a prefill came in via ?q=
+  useEffect(() => {
+    if (initialQ && !response && !isLoading) {
+      handleSubmit(initialQ)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQ])
+
   const handleReset = () => {
     setResponse(null)
     setError(null)
     setLastQuestion("")
+    setPrefill("")
   }
 
   return (
@@ -85,7 +106,12 @@ export default function AskPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <AskInput onSubmit={handleSubmit} isLoading={isLoading} />
+        <AskInput
+          key={prefill}
+          onSubmit={handleSubmit}
+          isLoading={isLoading}
+          initialValue={prefill}
+        />
       </motion.div>
 
       {/* Suggestions - only show when no response */}
@@ -157,8 +183,8 @@ export default function AskPage() {
                 <X className="h-10 w-10 text-destructive" />
                 <div className="text-center">
                   <p className="font-medium text-destructive">{error}</p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="mt-4 gap-2"
                     onClick={() => lastQuestion && handleSubmit(lastQuestion)}
                   >
@@ -183,7 +209,8 @@ export default function AskPage() {
           >
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Results for: <span className="font-medium text-foreground">{lastQuestion}</span>
+                Results for:{" "}
+                <span className="font-medium text-foreground">{lastQuestion}</span>
               </p>
               <Button variant="ghost" size="sm" onClick={handleReset} className="gap-2">
                 <RotateCcw className="h-4 w-4" />
@@ -195,5 +222,13 @@ export default function AskPage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function AskPage() {
+  return (
+    <Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
+      <AskPageInner />
+    </Suspense>
   )
 }

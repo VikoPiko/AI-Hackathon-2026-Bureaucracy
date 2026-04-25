@@ -11,10 +11,11 @@ interface AskInputProps {
   onSubmit: (question: string, file?: File) => void
   isLoading?: boolean
   placeholder?: string
+  initialValue?: string
 }
 
-export function AskInput({ onSubmit, isLoading, placeholder }: AskInputProps) {
-  const [question, setQuestion] = useState("")
+export function AskInput({ onSubmit, isLoading, placeholder, initialValue }: AskInputProps) {
+  const [question, setQuestion] = useState(initialValue ?? "")
   const [file, setFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)

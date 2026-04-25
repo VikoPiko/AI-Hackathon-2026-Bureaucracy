@@ -6,10 +6,22 @@ import { useAuth } from "@/lib/auth/context"
 import { StatsOverview } from "@/components/dashboard/stats-overview"
 import { OngoingProcesses } from "@/components/dashboard/ongoing-processes"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
+import { TodayPriorities } from "@/components/dashboard/today-priorities"
+import { ActivityChart } from "@/components/dashboard/activity-chart"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowRight, Sparkles, X, MessageSquare, FileText, FolderOpen, HelpCircle } from "lucide-react"
+import { Kbd } from "@/components/ui/kbd"
+import {
+  ArrowRight,
+  Sparkles,
+  X,
+  MessageSquare,
+  FileText,
+  FolderOpen,
+  HelpCircle,
+} from "lucide-react"
 import Link from "next/link"
+import { useCommandPalette } from "@/components/app/command-palette"
 
 const quickActions = [
   {
@@ -24,7 +36,8 @@ const quickActions = [
     description: "Analyze documents for guidance",
     icon: FileText,
     href: "/ask",
-    color: "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50",
+    color:
+      "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50",
   },
   {
     title: "Browse Guides",
@@ -38,12 +51,14 @@ const quickActions = [
     description: "Tips and support resources",
     icon: HelpCircle,
     href: "/help",
-    color: "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50",
+    color:
+      "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50",
   },
 ]
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { setOpen: openCommandPalette } = useCommandPalette()
   const [showWelcomeCard, setShowWelcomeCard] = useState(false)
   const [isFirstVisit, setIsFirstVisit] = useState(true)
 
@@ -71,27 +86,55 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome Section */}
+      {/* Welcome Hero with subtle mesh */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/[0.04] via-background to-accent/[0.05] px-5 py-6 sm:px-7 sm:py-8"
       >
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {greeting()}, {user?.name?.split(" ")[0]}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Here&apos;s an overview of your bureaucratic journey.
-          </p>
+        {/* Decorative blobs */}
+        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-accent/10 blur-3xl" />
+
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
+              <Sparkles className="h-3 w-3 text-accent" />
+              <span>FormWise · AI assistant for European bureaucracy</span>
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {greeting()},{" "}
+              <span className="bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
+                {user?.name?.split(" ")[0] || "friend"}
+              </span>
+            </h1>
+            <p className="text-muted-foreground max-w-xl">
+              Here's a snapshot of your bureaucratic journey. Press{" "}
+              <Kbd className="bg-background/80 border border-border">⌘K</Kbd> any time to
+              search, navigate, or ask AI.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:items-end">
+            <Button
+              asChild
+              className="gap-2 group shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
+            >
+              <Link href="/ask">
+                <Sparkles className="h-4 w-4" />
+                New Question
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Button>
+            <button
+              type="button"
+              onClick={() => openCommandPalette(true)}
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              or open command palette →
+            </button>
+          </div>
         </div>
-        <Button asChild className="gap-2 w-fit group shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow">
-          <Link href="/ask">
-            <Sparkles className="h-4 w-4" />
-            New Question
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </Button>
       </motion.div>
 
       {/* Stats Overview */}
@@ -122,7 +165,8 @@ export default function DashboardPage() {
                     Welcome to FormWise!
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Ask our AI assistant about any bureaucratic process and get step-by-step guidance.
+                    Ask our AI assistant about any bureaucratic process and get
+                    step-by-step guidance.
                   </p>
                 </div>
                 <Button asChild className="gap-2 shrink-0 group">
@@ -136,6 +180,21 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Priorities + Activity chart */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid gap-6 lg:grid-cols-5"
+      >
+        <div className="lg:col-span-3">
+          <TodayPriorities />
+        </div>
+        <div className="lg:col-span-2">
+          <ActivityChart />
+        </div>
+      </motion.div>
 
       {/* Quick Actions */}
       <motion.div
@@ -159,12 +218,18 @@ export default function DashboardPage() {
                   className="p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-md transition-all duration-300 cursor-pointer group"
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${action.color}`}>
+                    <div
+                      className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${action.color}`}
+                    >
                       <action.icon className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium group-hover:text-primary transition-colors">{action.title}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">{action.description}</p>
+                      <p className="font-medium group-hover:text-primary transition-colors">
+                        {action.title}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {action.description}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -183,7 +248,7 @@ export default function DashboardPage() {
         >
           <OngoingProcesses />
         </motion.div>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
