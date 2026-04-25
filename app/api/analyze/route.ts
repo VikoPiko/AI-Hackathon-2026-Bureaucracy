@@ -12,7 +12,11 @@ import {
   pickOfficialSourceUrl,
 } from '@/lib/ai/source-citations';
 import { getGovernmentDomains } from '@/lib/ai/gov-web-search';
-import { getPromptCacheOptions } from '@/lib/ai/prompt-cache';
+import {
+  AI_MODELS,
+  getOpenAIProviderOptions,
+  supportsTemperatureControl,
+} from '@/lib/ai/model-config';
 import { getCachedValue, setCachedValue } from '@/lib/ai/search-context-cache';
 import { findCachedDocumentRisk, isDemoMode } from '@/lib/cached-answers';
 import { extractTextFromFile, extractTextFromUrl } from '@/lib/extract';
@@ -20,11 +24,7 @@ import { buildAnalyzeSystemPrompt } from '@/lib/prompts';
 import { COUNTRY_NAMES, DocumentRiskModelSchema } from '@/lib/types';
 import { z } from 'zod';
 
-const ANALYZE_MODEL = process.env.OPENAI_ANALYZE_MODEL || 'gpt-5.4';
-
-function supportsTemperatureControl(modelId: string): boolean {
-  return !/^gpt-5($|-)/.test(modelId);
-}
+const ANALYZE_MODEL = AI_MODELS.analyze;
 
 const analyzeRequestSchema = z
   .object({
@@ -106,13 +106,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const promptCache = getPromptCacheOptions({
-      modelId: ANALYZE_MODEL,
-      family: 'analyze',
-      country: input.country,
-      documentType: input.document_type,
-    });
-
     const preferredDomains = getGovernmentDomains(input.country) || [];
     const useWebSearch =
       input.document_type === 'official_letter' ||
@@ -171,11 +164,15 @@ Search for official or public-service guidance that helps interpret this documen
         toolChoice: { type: 'tool', toolName: 'web_search' } as const,
         ...(supportsTemperatureControl(ANALYZE_MODEL) ? { temperature: 0 } : {}),
         providerOptions: {
-          openai: {
-            store: false,
-            promptCacheKey: `${promptCache.promptCacheKey}-w`.slice(0, 64),
-            promptCacheRetention: promptCache.promptCacheRetention,
-          },
+          openai: getOpenAIProviderOptions({
+            modelId: ANALYZE_MODEL,
+            family: 'analyze',
+            country: input.country,
+            language: input.language,
+            documentType: input.document_type,
+            promptCacheSuffix: '-w',
+            textVerbosity: 'low',
+          }),
         },
         });
 
@@ -219,11 +216,14 @@ Document text:
 ${documentText.slice(0, 14000)}`,
       ...(supportsTemperatureControl(ANALYZE_MODEL) ? { temperature: 0 } : {}),
       providerOptions: {
-        openai: {
-          store: false,
-          promptCacheKey: promptCache.promptCacheKey,
-          promptCacheRetention: promptCache.promptCacheRetention,
-        },
+        openai: getOpenAIProviderOptions({
+          modelId: ANALYZE_MODEL,
+          family: 'analyze',
+          country: input.country,
+          language: input.language,
+          documentType: input.document_type,
+          textVerbosity: 'high',
+        }),
       },
     });
     const object = result.output;

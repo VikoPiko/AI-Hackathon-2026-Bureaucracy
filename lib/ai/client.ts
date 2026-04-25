@@ -117,6 +117,10 @@ function estimateDifficulty(answer: PartialProcedureAnswer): BureaucracyResponse
 }
 
 function estimateTotalTime(answer: PartialProcedureAnswer): string {
+  if (hasText(answer.estimated_timeline)) {
+    return answer.estimated_timeline
+  }
+
   const stepCount = answer.steps?.length ?? 0
 
   if (stepCount >= 7) return "Several weeks to several months"
@@ -160,9 +164,20 @@ export function mapProcedureAnswerToUi(
     })),
     keyPoints: answer.key_points || [],
     checklist: answer.checklist || [],
+    legalBasis: answer.legal_basis || [],
+    covers: answer.covers || [],
+    notCovered: answer.not_covered || [],
+    eligibility: answer.eligibility || [],
+    prerequisites: answer.prerequisites || [],
+    exceptions: answer.exceptions || [],
+    timelineDetails: answer.timeline_details || [],
+    costBreakdown: answer.cost_breakdown || [],
     risks: answer.risks || [],
     positivePoints: answer.positive_points || [],
     missingClauses: answer.missing_clauses || [],
+    commonMistakes: answer.common_mistakes || [],
+    scamsToAvoid: answer.scams_to_avoid || [],
+    whatNotToDo: answer.what_not_to_do || [],
     officeInfo: {
       name: officeName,
       website: hasText(answer.source_url) ? answer.source_url : undefined,
@@ -171,7 +186,9 @@ export function mapProcedureAnswerToUi(
       phone: undefined,
       hours: undefined,
     },
-    costs: hasText(answer.fee_info) ? answer.fee_info : undefined,
+    costs: hasText(answer.fee_info)
+      ? answer.fee_info
+      : answer.cost_breakdown?.find((item) => hasText(item)),
     additionalNotes:
       answer.answerable === false
         ? "This answer still needs more context before you should rely on it."
@@ -187,7 +204,7 @@ export function mapProcedureAnswerToUi(
       kind: source.kind,
       isOfficial: source.is_official,
     })),
-    relatedProcedures: undefined,
+    relatedProcedures: answer.related_procedures || [],
   }
 }
 

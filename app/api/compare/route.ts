@@ -1,7 +1,8 @@
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { findCachedComparisonAnswer, isDemoMode } from '@/lib/cached-answers';
+import { AI_MODELS, getOpenAIProviderOptions } from '@/lib/ai/model-config';
 import { SupportedCountryInputSchema } from '@/lib/ai/request-schemas';
 import { buildCompareSystemPrompt } from '@/lib/prompts';
 import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
@@ -10,6 +11,8 @@ import {
   COUNTRY_NAMES,
   type Country,
 } from '@/lib/types';
+
+const COMPARE_MODEL = AI_MODELS.compare;
 
 const compareRequestSchema = z.object({
   question: z.string().trim().min(1).max(2000),
@@ -86,9 +89,9 @@ export async function POST(req: Request) {
       )
       .join('\n\n');
 
-    const { object } = await generateObject({
-      model: openai('gpt-4o') as never,
-      schema: CountryComparisonSchema,
+    const { output } = await generateText({
+      model: openai(COMPARE_MODEL),
+      output: Output.object({ schema: CountryComparisonSchema }),
       system: buildCompareSystemPrompt(),
       prompt: `Comparison question: ${question}
 
@@ -99,9 +102,20 @@ ${omittedCountries.length ? `\nCountries with insufficient official context: ${o
 
 Context from official sources per country:
 ${contextBlock}`,
+      providerOptions: {
+        openai: getOpenAIProviderOptions({
+          modelId: COMPARE_MODEL,
+          family: 'compare',
+          country: normalizedCountries.join('-'),
+          textVerbosity: 'high',
+        }),
+      },
     });
+    if (!output) {
+      throw new Error('No structured comparison output returned');
+    }
 
-    return Response.json(object);
+    return Response.json(output);
   } catch (error) {
     console.error('Compare route error:', error);
     const fallbackPayload = compareRequestSchema.safeParse(body);

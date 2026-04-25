@@ -1,7 +1,7 @@
 import { PROMPT_VERSION } from '@/lib/prompts';
 
 function supportsExtendedPromptCaching(modelId: string): boolean {
-  return /^gpt-4\.1($|-)/.test(modelId) || /^gpt-5($|-)/.test(modelId);
+  return /^gpt-4\.1($|-)/.test(modelId) || /^gpt-5([.-]|$)/.test(modelId);
 }
 
 function compactSegment(value: string | undefined, fallback: string, maxLength = 12): string {

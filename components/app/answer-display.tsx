@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { useState } from "react"
 import { motion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,10 +18,14 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Landmark,
+  ListChecks,
   MapPin,
   Phone,
   ShieldAlert,
+  Sparkles,
   ThumbsUp,
+  TriangleAlert,
 } from "lucide-react"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
 import {
@@ -33,7 +38,7 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.15,
+      staggerChildren: 0.12,
     },
   },
 } as const
@@ -43,7 +48,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.4, 0.25, 1] },
+    transition: { duration: 0.45, ease: [0.25, 0.4, 0.25, 1] },
   },
 } as const
 
@@ -52,10 +57,106 @@ interface AnswerDisplayProps {
   response: BureaucracyResponse
 }
 
+function InfoListCard({
+  title,
+  items,
+  empty,
+  icon,
+}: {
+  title: string
+  items?: string[]
+  empty?: string
+  icon?: ReactNode
+}) {
+  if ((!items || items.length === 0) && !empty) {
+    return null
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {items && items.length > 0 ? items.map((item) => (
+          <div key={item} className="rounded-lg border p-3 text-sm text-muted-foreground">
+            {item}
+          </div>
+        )) : (
+          <p className="text-sm text-muted-foreground">{empty}</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function getDifficultyColor(difficulty: string) {
+  switch (difficulty) {
+    case "easy":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+    case "moderate":
+      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+    case "complex":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+    default:
+      return "bg-secondary text-secondary-foreground"
+  }
+}
+
+function getConfidenceLabel(confidence?: number) {
+  if (typeof confidence !== "number") {
+    return "Not scored"
+  }
+
+  if (confidence >= 0.85) return "High confidence"
+  if (confidence >= 0.65) return "Good confidence"
+  if (confidence >= 0.45) return "Needs verification"
+  return "Low confidence"
+}
+
+function getSourceTrust(response: BureaucracyResponse) {
+  const officialCount = response.sources?.filter((source) => source.isOfficial).length ?? 0
+
+  if (officialCount > 0) {
+    return {
+      label: `${officialCount} official source${officialCount === 1 ? "" : "s"}`,
+      detail: "Grounded with government or public-service references.",
+      className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    }
+  }
+
+  if (response.sources && response.sources.length > 0) {
+    return {
+      label: "Source review needed",
+      detail: "Useful context was found, but no official source was confirmed.",
+      className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    }
+  }
+
+  return {
+    label: "No source attached",
+    detail: "Treat this as a starting point until official sources are verified.",
+    className: "border-muted bg-muted/40 text-muted-foreground",
+  }
+}
+
+function getNextActions(response: BureaucracyResponse): string[] {
+  if (response.checklist && response.checklist.length > 0) {
+    return response.checklist.slice(0, 4)
+  }
+
+  return response.steps.slice(0, 4).map((step) => step.description)
+}
+
 export function AnswerDisplay({ question = "Procedure guidance", response }: AnswerDisplayProps) {
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [checkedDocs, setCheckedDocs] = useState<string[]>([])
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
+  const sourceTrust = getSourceTrust(response)
+  const nextActions = getNextActions(response)
 
   const stepsProgress = response.steps.length > 0
     ? (completedSteps.length / response.steps.length) * 100
@@ -80,19 +181,6 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
     )
   }
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "easy":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      case "moderate":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-      case "complex":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-      default:
-        return "bg-secondary text-secondary-foreground"
-    }
-  }
-
   return (
     <motion.div
       variants={containerVariants}
@@ -101,7 +189,8 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
       className="space-y-6"
     >
       <motion.div variants={itemVariants}>
-        <Card className="border-l-4 border-l-primary overflow-hidden">
+        <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm">
+          <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
           <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -112,6 +201,11 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
                   <Clock className="h-3 w-3" />
                   {response.totalEstimatedTime}
                 </Badge>
+                {typeof response.confidence === "number" && (
+                  <Badge variant="secondary">
+                    {getConfidenceLabel(response.confidence)} · {Math.round(response.confidence * 100)}%
+                  </Badge>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -134,10 +228,68 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
                 </Button>
               </div>
             </div>
-            <CardTitle className="text-xl">{response.procedureName}</CardTitle>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+                FormWise Case File
+              </p>
+              <CardTitle className="text-2xl">{response.procedureName}</CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-muted-foreground leading-relaxed">{response.summary}</p>
+            <p className="max-w-3xl text-base leading-relaxed text-muted-foreground">
+              {response.summary}
+            </p>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border bg-background/60 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Timeline
+                </p>
+                <p className="mt-1 text-sm font-semibold">{response.totalEstimatedTime}</p>
+              </div>
+              <div className="rounded-xl border bg-background/60 p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Readiness
+                </p>
+                <p className="mt-1 text-sm font-semibold">
+                  {response.needsMoreContext ? "Needs your details" : "Ready for next steps"}
+                </p>
+              </div>
+              <div className={`rounded-xl border p-4 ${sourceTrust.className}`}>
+                <p className="text-xs font-medium uppercase tracking-wide">Source trust</p>
+                <p className="mt-1 text-sm font-semibold">{sourceTrust.label}</p>
+              </div>
+            </div>
+            {response.needsMoreContext && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Personal details would make this safer</p>
+                    <p className="text-sm text-muted-foreground">
+                      The general guidance is available, but the final eligibility or deadline may depend on your exact status.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {nextActions.length > 0 && (
+              <div className="rounded-xl border bg-background/70 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <ListChecks className="h-5 w-5 text-primary" />
+                  <h4 className="font-semibold">Recommended next actions</h4>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {nextActions.map((item, index) => (
+                    <div key={`${item}-${index}`} className="flex gap-3 rounded-lg bg-card p-3 text-sm">
+                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                        {index + 1}
+                      </span>
+                      <span className="text-muted-foreground">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {response.keyPoints && response.keyPoints.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">Key Points</h4>
@@ -150,9 +302,50 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
                 </div>
               </div>
             )}
+            <p className="text-xs text-muted-foreground">{sourceTrust.detail}</p>
           </CardContent>
         </Card>
       </motion.div>
+
+      {(response.legalBasis?.length || response.covers?.length || response.notCovered?.length) ? (
+        <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
+          <InfoListCard
+            title="Legal Basis"
+            items={response.legalBasis}
+            icon={<Landmark className="h-5 w-5 text-primary" />}
+          />
+          <InfoListCard
+            title="This Covers"
+            items={response.covers}
+            icon={<CheckCircle2 className="h-5 w-5 text-primary" />}
+          />
+          <InfoListCard
+            title="Not Covered"
+            items={response.notCovered}
+            icon={<AlertCircle className="h-5 w-5 text-primary" />}
+          />
+        </motion.div>
+      ) : null}
+
+      {(response.eligibility?.length || response.prerequisites?.length || response.exceptions?.length) ? (
+        <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-3">
+          <InfoListCard
+            title="Eligibility"
+            items={response.eligibility}
+            icon={<Sparkles className="h-5 w-5 text-primary" />}
+          />
+          <InfoListCard
+            title="Prerequisites"
+            items={response.prerequisites}
+            icon={<FileText className="h-5 w-5 text-primary" />}
+          />
+          <InfoListCard
+            title="Exceptions"
+            items={response.exceptions}
+            icon={<TriangleAlert className="h-5 w-5 text-primary" />}
+          />
+        </motion.div>
+      ) : null}
 
       {response.checklist && response.checklist.length > 0 && (
         <motion.div variants={itemVariants}>
@@ -178,78 +371,67 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
         </motion.div>
       )}
 
-      <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              Estimated Process Length
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{response.totalEstimatedTime}</p>
-          </CardContent>
-        </Card>
+      <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-2">
+        <InfoListCard
+          title="Timeline Details"
+          items={response.timelineDetails}
+          empty={response.totalEstimatedTime}
+          icon={<Clock className="h-5 w-5 text-primary" />}
+        />
+        <InfoListCard
+          title="Cost Breakdown"
+          items={response.costBreakdown}
+          empty={response.costs || "No grounded fee breakdown was confirmed."}
+          icon={<FileText className="h-5 w-5 text-primary" />}
+        />
       </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <motion.div variants={itemVariants}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-primary" />
-                Potential Risks
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {response.risks && response.risks.length > 0 ? response.risks.map((risk) => (
-                <div key={risk} className="rounded-lg border p-3 text-sm text-muted-foreground">
-                  {risk}
-                </div>
-              )) : (
-                <p className="text-sm text-muted-foreground">No major risks were identified from the available context.</p>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ThumbsUp className="h-5 w-5 text-primary" />
-                Positive Points
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {response.positivePoints && response.positivePoints.length > 0 ? response.positivePoints.map((item) => (
-                <div key={item} className="rounded-lg border p-3 text-sm text-muted-foreground">
-                  {item}
-                </div>
-              )) : (
-                <p className="text-sm text-muted-foreground">No strong positive factors were confirmed from the available context.</p>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      <motion.div variants={itemVariants}>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Missing Clauses</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {response.missingClauses && response.missingClauses.length > 0 ? response.missingClauses.map((item) => (
-              <div key={item} className="rounded-lg border p-3 text-sm text-muted-foreground">
-                {item}
-              </div>
-            )) : (
-              <p className="text-sm text-muted-foreground">No major missing confirmations were identified.</p>
-            )}
-          </CardContent>
-        </Card>
+      <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-2">
+        <InfoListCard
+          title="Potential Risks"
+          items={response.risks}
+          empty="No major risks were identified from the available context."
+          icon={<ShieldAlert className="h-5 w-5 text-primary" />}
+        />
+        <InfoListCard
+          title="Positive Points"
+          items={response.positivePoints}
+          empty="No strong positive factors were confirmed from the available context."
+          icon={<ThumbsUp className="h-5 w-5 text-primary" />}
+        />
       </motion.div>
+
+      <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-2">
+        <InfoListCard
+          title="Missing Confirmations"
+          items={response.missingClauses}
+          empty="No major missing confirmations were identified."
+          icon={<AlertCircle className="h-5 w-5 text-primary" />}
+        />
+        <InfoListCard
+          title="Common Mistakes"
+          items={response.commonMistakes}
+          empty="No common failure modes were confidently identified."
+          icon={<TriangleAlert className="h-5 w-5 text-primary" />}
+        />
+      </motion.div>
+
+      {(response.scamsToAvoid?.length || response.whatNotToDo?.length) ? (
+        <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-2">
+          <InfoListCard
+            title="Scams To Avoid"
+            items={response.scamsToAvoid}
+            empty="No specific scam pattern was confirmed from the official context."
+            icon={<ShieldAlert className="h-5 w-5 text-primary" />}
+          />
+          <InfoListCard
+            title="What Not To Do"
+            items={response.whatNotToDo}
+            empty="No special prohibitions were confirmed beyond the normal process."
+            icon={<AlertCircle className="h-5 w-5 text-primary" />}
+          />
+        </motion.div>
+      ) : null}
 
       <motion.div variants={itemVariants}>
         <Card>
@@ -469,6 +651,23 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
         </Card>
       </motion.div>
 
+      {(response.relatedProcedures?.length || response.followUpQuestions?.length) ? (
+        <motion.div variants={itemVariants} className="grid gap-6 md:grid-cols-2">
+          <InfoListCard
+            title="Related Procedures"
+            items={response.relatedProcedures}
+            empty="No adjacent procedure was confidently identified."
+            icon={<FileText className="h-5 w-5 text-primary" />}
+          />
+          <InfoListCard
+            title="Useful Follow-up Questions"
+            items={response.followUpQuestions}
+            empty="No follow-up prompts were suggested."
+            icon={<Sparkles className="h-5 w-5 text-primary" />}
+          />
+        </motion.div>
+      ) : null}
+
       {response.additionalNotes && (
         <motion.div variants={itemVariants}>
           <Card className="border-l-4 border-l-accent">
@@ -520,24 +719,6 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
                   )}
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {response.costs && (
-        <motion.div variants={itemVariants}>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-primary font-semibold">$</span>
-                </div>
-                <div>
-                  <h4 className="font-medium">Estimated Costs</h4>
-                  <p className="text-muted-foreground">{response.costs}</p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </motion.div>

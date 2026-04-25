@@ -1,10 +1,11 @@
 import OpenAI from 'openai';
+import { OPENAI_EMBEDDING_MODEL } from '@/lib/ai/model-config';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function embedText(text: string): Promise<number[]> {
   const res = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
+    model: OPENAI_EMBEDDING_MODEL,
     input: text.slice(0, 8000),
   });
 
@@ -13,7 +14,7 @@ export async function embedText(text: string): Promise<number[]> {
 
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   const res = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
+    model: OPENAI_EMBEDDING_MODEL,
     input: texts.map((text) => text.slice(0, 8000)),
   });
 

@@ -1,4 +1,4 @@
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import {
@@ -6,9 +6,12 @@ import {
   SupportedLanguageInputSchema,
 } from '@/lib/ai/request-schemas';
 import { findCachedJourneyAnswer, isDemoMode } from '@/lib/cached-answers';
+import { AI_MODELS, getOpenAIProviderOptions } from '@/lib/ai/model-config';
 import { buildJourneySystemPrompt } from '@/lib/prompts';
 import { retrieveContext, getConfidence } from '@/lib/rag';
 import { RelocationJourneySchema, COUNTRY_NAMES } from '@/lib/types';
+
+const JOURNEY_MODEL = AI_MODELS.journey;
 
 const journeyRequestSchema = z.object({
   from_country: z.string().trim().min(2).max(100).default('unknown'),
@@ -288,9 +291,9 @@ export async function POST(req: Request) {
       });
     }
 
-    const { object } = await generateObject({
-      model: openai('gpt-4o') as never,
-      schema: RelocationJourneySchema,
+    const { output } = await generateText({
+      model: openai(JOURNEY_MODEL),
+      output: Output.object({ schema: RelocationJourneySchema }),
       system: buildJourneySystemPrompt(to_country, language),
       prompt: `Relocating from: ${from_country}
 Nationality: ${nationality || 'not specified'}
@@ -305,9 +308,21 @@ Areas with limited official context: ${
 
 Context from ${COUNTRY_NAMES[to_country] || to_country} official sources:
 ${context}`,
+      providerOptions: {
+        openai: getOpenAIProviderOptions({
+          modelId: JOURNEY_MODEL,
+          family: 'journey',
+          country: to_country,
+          language,
+          textVerbosity: 'high',
+        }),
+      },
     });
+    if (!output) {
+      throw new Error('No structured journey output returned');
+    }
 
-    const warnings = [...object.warnings];
+    const warnings = [...output.warnings];
     if (missingAreas.length > 0) {
       warnings.push(
         `Some parts of this plan rely on limited official source coverage. Double-check these areas on official sources: ${missingAreas.join(', ')}.`,
@@ -315,7 +330,7 @@ ${context}`,
     }
 
     return Response.json({
-      ...object,
+      ...output,
       warnings,
     });
   } catch (error) {

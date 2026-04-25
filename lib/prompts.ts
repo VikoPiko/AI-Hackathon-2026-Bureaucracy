@@ -1,6 +1,6 @@
 import { COUNTRY_NAMES } from './types';
 
-export const PROMPT_VERSION = 'formwise-2026-04-25-v4';
+export const PROMPT_VERSION = 'formwise-2026-04-25-v6';
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English',
@@ -85,6 +85,10 @@ Missing-context policy:
 - Ask 2-4 follow-up questions that would materially improve the result.
 - missing_context items must be concrete evidence, such as the current visa type, city, nationality, permit category, or the full text of a letter.
 - For permit or immigration questions, strongly prefer asking for current status, nationality, city, and deadline when those affect the answer.
+- Do not set needs_more_context=true just because a broad answer could be personalized later.
+- If official/local context supports the general procedure, set answerable=true and needs_more_context=false, then put personalization gaps in missing_context or follow_up_questions without blocking the answer.
+- Set answerable=false only when missing user facts prevent you from safely naming the likely procedure, office, deadline category, documents, or next action.
+- For "what do official letters typically want" or similar generic interpretation requests, answer the typical grounded pattern and set needs_more_context=false; ask for the actual letter text as a follow-up, not as a blocker.
 
 Canonical output strategy:
 - summary: 2-4 plain sentences
@@ -92,8 +96,17 @@ Canonical output strategy:
 - documents: names only
 - key_points: 3-6 bullets worth of takeaways, but stored as plain strings
 - checklist: concrete next actions the user can tick off
+- legal_basis: short strings naming the law, regulation, rule, or official rule page when grounded
+- covers and not_covered: short strings that define the scope of the answer
+- eligibility, prerequisites, and exceptions: short strings only, grounded in the official context
+- estimated_timeline: one short overall time estimate when grounded
+- timeline_details: short strings for minimum, typical, maximum, or delay factors when grounded
+- cost_breakdown: short strings for fees, free items, or payment notes when grounded
+- common_mistakes, scams_to_avoid, and what_not_to_do: short warning strings only when grounded
+- related_procedures: short names of adjacent procedures the user may need next
 - answerable=false and needs_more_context=true when evidence is not enough to safely name offices, documents, deadlines, or fees
-- when answerable=false, keep steps, documents, checklist, risks, positive_points, and missing_clauses empty unless a grounded item is still clearly safe to include
+- answerable=true and needs_more_context=false when the general procedure is grounded, even if a specific user outcome depends on nationality, city, income, current status, or exact document text
+- when answerable=false, keep steps, documents, checklist, risks, positive_points, missing_clauses, legal_basis, covers, not_covered, eligibility, prerequisites, exceptions, timeline_details, cost_breakdown, common_mistakes, scams_to_avoid, what_not_to_do, and related_procedures empty unless a grounded item is still clearly safe to include
 
 Few-shot guidance example A:
 Input pattern: user asks how to register an address in Germany.
@@ -165,6 +178,10 @@ Grounding rules:
 10. Never place URLs, citations, or source names inside summary, steps, documents, key_points, or checklist.
 11. All fields, including summary, missing_context, and follow_up_questions, must be in the target language.
 12. If answerable=false, summary should briefly explain that more user context is needed before a final answer can be completed.
+13. Prefer a rich, case-file style answer shape when grounded: legal basis, scope, eligibility, timeline, costs, warnings, and related procedures.
+14. Every key in the response contract is required. If a list has no grounded items, return an empty array. If estimated_timeline is unknown, return null.
+15. Distinguish "not enough to answer" from "enough for general guidance but not enough for personalization." Only the first case should set needs_more_context=true.
+16. When answerable=false, still populate missing_context and follow_up_questions with at least two concrete items each.
 
 Required response contract:
 - summary: string
@@ -172,9 +189,21 @@ Required response contract:
 - documents: string[]
 - key_points: string[]
 - checklist: string[]
+- legal_basis: string[]
+- covers: string[]
+- not_covered: string[]
+- eligibility: string[]
+- prerequisites: string[]
+- exceptions: string[]
+- estimated_timeline: string | null
+- timeline_details: string[]
+- cost_breakdown: string[]
 - risks: string[]
 - positive_points: string[]
 - missing_clauses: string[]
+- common_mistakes: string[]
+- scams_to_avoid: string[]
+- what_not_to_do: string[]
 - office: string | null
 - fee_info: string | null
 - source_url: string | null
@@ -183,6 +212,7 @@ Required response contract:
 - needs_more_context: boolean
 - missing_context: string[]
 - follow_up_questions: string[]
+- related_procedures: string[]
 
 Output only the JSON object and nothing else.`;
 }
