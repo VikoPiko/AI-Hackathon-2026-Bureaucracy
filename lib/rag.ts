@@ -1,8 +1,11 @@
-import { ChromaClient, IncludeEnum, type Where } from 'chromadb';
-import { embedText } from './embed';
+import { ChromaClient, IncludeEnum, type Where } from "chromadb";
+import { embedText } from "./embed";
 
 let chromaInstance: ChromaClient | null = null;
 
+/**
+ * Type for ChromaDB metadata
+ */
 export interface ProcedureChunkMetadata {
   country?: string;
   category?: string;
@@ -20,7 +23,7 @@ export interface RetrievedContext {
   metadata: ProcedureChunkMetadata[];
 }
 
-const PROCEDURES_COLLECTION = 'procedures';
+const PROCEDURES_COLLECTION = "procedures";
 
 const QUERY_INCLUDE = [
   IncludeEnum.Documents,
@@ -28,24 +31,47 @@ const QUERY_INCLUDE = [
   IncludeEnum.Distances,
 ] as const;
 
-const GET_INCLUDE = [IncludeEnum.Metadatas] as const;
+export const GET_INCLUDE = [IncludeEnum.Metadatas] as const;
 
+/**
+ * Get or create the ChromaDB singleton instance
+ * Supports both local (docker) and remote (Railway) URLs
+ */
 export function getChromaClient(): ChromaClient {
   if (!chromaInstance) {
+    const chromaUrl = process.env.CHROMA_URL || "http://localhost:8000";
+
     chromaInstance = new ChromaClient({
-      path: process.env.CHROMA_URL || 'http://localhost:8000',
+      path: chromaUrl,
     });
   }
-
   return chromaInstance;
 }
 
+/**
+ * Get the current ChromaDB URL being used
+ */
+export function getChromaUrl(): string {
+  return process.env.CHROMA_URL || "http://localhost:8000";
+}
+
+/**
+ * Check if ChromaDB is configured for local development
+ */
+export function isLocalChroma(): boolean {
+  const url = getChromaUrl();
+  return url.includes("localhost") || url.includes("127.0.0.1");
+}
+
+/**
+ * Get or create the procedures collection
+ */
 export async function getProceduresCollection() {
   const chroma = getChromaClient();
 
   return chroma.getOrCreateCollection({
     name: PROCEDURES_COLLECTION,
-    metadata: { 'hnsw:space': 'cosine' },
+    metadata: { "hnsw:space": "cosine" },
   });
 }
 
@@ -64,6 +90,9 @@ function buildProcedureWhere(country: string, category?: string): Where {
   };
 }
 
+/**
+ * Retrieve relevant context chunks from ChromaDB for a question
+ */
 export async function retrieveContext(
   question: string,
   country: string,
@@ -84,19 +113,22 @@ export async function retrieveContext(
 
   return {
     chunks: ((results.documents?.[0] || []).filter(Boolean) as string[]) || [],
-    sources: metadata.map((item) => item?.source_url || ''),
+    sources: metadata.map((item) => item?.source_url || ""),
     distances: (results.distances?.[0] || []) as number[],
     metadata: metadata.map((item) => item || {}),
   };
 }
 
+/**
+ * Build context string from chunks and sources for LLM prompt
+ */
 export function buildContext(
   chunks: string[],
   sources: string[],
   metadata: ProcedureChunkMetadata[] = [],
 ): string {
   if (!chunks.length) {
-    return 'No relevant context found in the knowledge base.';
+    return "No relevant context found in the knowledge base.";
   }
 
   return chunks
@@ -105,14 +137,14 @@ export function buildContext(
       const heading = [
         item?.title ? `[Procedure: ${item.title}]` : null,
         item?.category ? `[Category: ${item.category}]` : null,
-        sources[index] ? `[Source: ${sources[index]}]` : '[Source: Unknown]',
+        sources[index] ? `[Source: ${sources[index]}]` : "[Source: Unknown]",
       ]
         .filter(Boolean)
-        .join('\n');
+        .join("\n");
 
       return `${heading}\n${chunk}`;
     })
-    .join('\n\n---\n\n');
+    .join("\n\n---\n\n");
 }
 
 export function getConfidence(distances: number[]): number {
@@ -139,16 +171,17 @@ export async function getCollectionStats() {
     const collection = await getProceduresCollection();
     return {
       name: collection.name,
-      dimension: collection.metadata?.dimension,
-      count: collection.metadata?.numElements,
+      dimension: collection.metadata?.dimension as number | undefined,
+      count: collection.metadata?.numElements as number | undefined,
     };
   } catch {
     return null;
   }
 }
 
+/**
+ * Reset ChromaDB connection (useful when URL changes)
+ */
 export function resetChromaClient(): void {
   chromaInstance = null;
 }
-
-export { GET_INCLUDE };
