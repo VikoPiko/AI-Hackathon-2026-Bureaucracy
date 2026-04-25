@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Send, Loader2, Upload, X, FileText, Image as ImageIcon, Globe } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Send, Loader2, Upload, X, FileText, Image as ImageIcon, Globe, MessageCircle } from "lucide-react"
 import { CountrySelector, COUNTRIES } from "./country-selector"
 
 interface AskInputProps {
@@ -14,6 +15,7 @@ interface AskInputProps {
   placeholder?: string
   initialValue?: string
   initialCountry?: string
+  isFollowUp?: boolean
 }
 
 export function AskInput({ 
@@ -21,7 +23,8 @@ export function AskInput({
   isLoading, 
   placeholder, 
   initialValue,
-  initialCountry = "BG"
+  initialCountry = "BG",
+  isFollowUp = false
 }: AskInputProps) {
   const [question, setQuestion] = useState(initialValue ?? "")
   const [file, setFile] = useState<File | null>(null)
@@ -91,9 +94,26 @@ export function AskInput({
             onChange={setCountry} 
             disabled={isLoading}
           />
-          <span className="text-xs text-muted-foreground ml-2">
+          <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">
             Select the country for this procedure
           </span>
+          
+          {/* Follow-up indicator */}
+          <AnimatePresence>
+            {isFollowUp && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="ml-auto"
+              >
+                <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary border-primary/20">
+                  <MessageCircle className="h-3 w-3" />
+                  Follow-up Mode
+                </Badge>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Question Input */}
@@ -111,6 +131,11 @@ export function AskInput({
               }
             }}
           />
+          
+          {/* Character count */}
+          <div className="absolute bottom-3 right-12 text-xs text-muted-foreground">
+            {question.length} / 2000
+          </div>
         </div>
 
         {/* File attachment */}
@@ -170,7 +195,7 @@ export function AskInput({
               Attach Document
             </Button>
 
-            <span className="text-xs text-muted-foreground hidden sm:inline">
+            <span className="text-xs text-muted-foreground hidden md:inline">
               PDF or images up to 10MB
             </span>
           </div>
@@ -185,6 +210,11 @@ export function AskInput({
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Analyzing...
               </>
+            ) : isFollowUp ? (
+              <>
+                <Send className="h-4 w-4" />
+                Ask Follow-up
+              </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
@@ -193,6 +223,23 @@ export function AskInput({
             )}
           </Button>
         </div>
+        
+        {/* Quick tips when in follow-up mode */}
+        <AnimatePresence>
+          {isFollowUp && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="pt-2 border-t"
+            >
+              <p className="text-xs text-muted-foreground text-center">
+                Tip: You can ask about specific steps, documents, costs, or any other detail from the previous answer.
+                The context of your previous question is automatically included.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </form>
 
       {/* Drag overlay */}
