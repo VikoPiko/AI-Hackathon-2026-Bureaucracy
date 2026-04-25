@@ -1,7 +1,12 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
-import { SupportedCountryInputSchema } from '@/lib/ai/request-schemas';
+import { finalizeCountryComparison } from '@/lib/ai/grounding';
+import {
+  SupportedCountryInputSchema,
+  SupportedLanguageInputSchema,
+} from '@/lib/ai/request-schemas';
+import { t } from '@/lib/i18n';
 import { buildCompareSystemPrompt } from '@/lib/prompts';
 import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
 import {
@@ -17,6 +22,7 @@ const compareRequestSchema = z.object({
     .min(1)
     .max(6)
     .default(['DE', 'NL', 'PT', 'ES']),
+  language: SupportedLanguageInputSchema.default('en'),
 });
 
 export async function POST(req: Request) {
@@ -36,7 +42,7 @@ export async function POST(req: Request) {
       new Set(payload.data.countries),
     ) as Country[];
 
-    const { question } = payload.data;
+    const { question, language } = payload.data;
 
     const contextByCountry = await Promise.all(
       normalizedCountries.map(async (code) => {
@@ -66,8 +72,7 @@ export async function POST(req: Request) {
       return Response.json({
         question_interpreted: question,
         countries: [],
-        recommendation:
-          'I do not have enough official source context to compare these countries reliably yet. Please narrow the question or verify on official government websites.',
+        recommendation: t(language, 'compareInsufficientContext'),
       });
     }
 
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
     const { object } = await generateObject({
       model: getModelId(),
       schema: CountryComparisonSchema,
-      system: buildCompareSystemPrompt(),
+      system: buildCompareSystemPrompt(language),
       prompt: `Comparison question: ${question}
 
 Countries to compare: ${groundedCountries
@@ -92,7 +97,25 @@ Context from official sources per country:
 ${contextBlock}`,
     });
 
-    return Response.json(object);
+    const finalized = finalizeCountryComparison(object, {
+      question,
+      language,
+      groundedCountries: groundedCountries.map((country) => ({
+        code: country.code,
+        name: country.name,
+      })),
+      omittedCountries: omittedCountries.map((country) => country.code),
+    });
+
+    if (finalized.countries.length === 0) {
+      return Response.json({
+        question_interpreted: finalized.question_interpreted,
+        countries: [],
+        recommendation: finalized.recommendation,
+      });
+    }
+
+    return Response.json(finalized);
   } catch (error) {
     console.error('Compare route error:', error);
     return Response.json(

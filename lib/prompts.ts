@@ -1,16 +1,5 @@
 import { COUNTRY_NAMES } from './types';
-
-// Language names map
-const LANG_NAMES: Record<string, string> = {
-  en: 'English',
-  de: 'German',
-  nl: 'Dutch',
-  pt: 'Portuguese',
-  es: 'Spanish',
-  fr: 'French',
-  bg: 'Bulgarian',
-  tr: 'Turkish',
-};
+import { getLanguageName } from './i18n';
 
 const LEGAL_STANDARDS: Record<string, Record<string, string>> = {
   DE: {
@@ -51,6 +40,8 @@ const DEFAULT_STANDARDS =
   'Apply general European contract law standards. Flag any clause that appears one-sided, waives standard legal rights, or imposes unusual obligations on the weaker party.';
 
 export function buildChatSystemPrompt(language: string, country: string): string {
+  const languageName = getLanguageName(language);
+
   return `You are an expert bureaucracy navigator specializing in ${COUNTRY_NAMES[country] || country}.
 You help expats, foreign nationals, and locals navigate official government procedures.
 Your users are often stressed: moving abroad, language barriers, unsure of their legal rights.
@@ -63,7 +54,7 @@ RULES — never violate these:
 5. If any step requires speaking the local language, say so and suggest bringing a translator.
 6. Fee: if free -> 'Free (gratis)'. If unknown -> null.
 7. Confidence scale: 0.85-1.0 = complete answer | 0.5-0.85 = partial | below 0.5 = insufficient.
-8. Respond entirely in ${LANG_NAMES[language] || 'English'}.
+8. Respond entirely in ${languageName}. If the requested language cannot be followed, fall back to English.
 
 Output ONLY the JSON object. No preamble. No markdown fences.`;
 }
@@ -71,8 +62,13 @@ Output ONLY the JSON object. No preamble. No markdown fences.`;
 /**
  * Build system prompt for document analysis
  */
-export function buildAnalyzeSystemPrompt(country: string, documentType: string): string {
+export function buildAnalyzeSystemPrompt(
+  country: string,
+  documentType: string,
+  language = 'en',
+): string {
   const countryName = COUNTRY_NAMES[country] || country;
+  const languageName = getLanguageName(language);
   
   // Country-specific legal standards
   const standards = LEGAL_STANDARDS[country]?.[documentType] || DEFAULT_STANDARDS;
@@ -88,15 +84,15 @@ Your job:
 - Flag standard legal protections that are absent but should be there
 - Note genuinely positive or well-drafted clauses
 - Severity: HIGH = illegal clause or waives statutory rights | MEDIUM = below standard, should negotiate | LOW = worth noting
-- verdict: one plain-English sentence bottom line for someone deciding whether to sign
+- verdict: one plain sentence in ${languageName} with the bottom line for someone deciding whether to sign
 
-CRITICAL: Always respond in English, even if the document is in another language.
+Respond in ${languageName}. If the requested language cannot be followed, fall back to English.
 Output ONLY the JSON object. No preamble. No markdown.`;
 }
 
 export function buildJourneySystemPrompt(toCountry: string, language = 'en'): string {
   const countryName = COUNTRY_NAMES[toCountry] || toCountry;
-  const languageName = LANG_NAMES[language] || 'English';
+  const languageName = getLanguageName(language);
 
   return `You are an expert international relocation advisor.
 Create a complete, phased relocation roadmap for someone moving to ${countryName}.
@@ -117,11 +113,13 @@ Urgency:
 
 Include realistic warnings about the most common mistakes people make in this move.
 If an area is not grounded in the provided context, keep it high-level and say that it should be verified on official sources.
-Respond in ${languageName}.
+Respond in ${languageName}. If the requested language cannot be followed, fall back to English.
 Output ONLY the JSON object. No preamble. No markdown fences.`;
 }
 
-export function buildCompareSystemPrompt(): string {
+export function buildCompareSystemPrompt(language = 'en'): string {
+  const languageName = getLanguageName(language);
+
   return `You are an expert in European immigration, residency, and relocation law.
 Compare how different countries handle the same situation for someone relocating internationally.
 
@@ -135,5 +133,6 @@ difficulty rating: easy = straightforward process, mostly online, clear requirem
 moderate = several steps, some in-person visits, some bureaucracy |
 complex = lengthy process, many documents, uncertain timelines, language barriers significant.
 
+Respond in ${languageName}. If the requested language cannot be followed, fall back to English.
 Output ONLY the JSON object. No preamble. No markdown.`;
 }

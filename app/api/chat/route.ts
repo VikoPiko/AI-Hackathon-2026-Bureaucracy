@@ -5,6 +5,7 @@ import {
   SupportedCountryInputSchema,
   SupportedLanguageInputSchema,
 } from '@/lib/ai/request-schemas';
+import { t } from '@/lib/i18n';
 import { buildChatSystemPrompt } from '@/lib/prompts';
 import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
 import { ProcedureAnswerSchema, COUNTRY_NAMES } from '@/lib/types';
@@ -39,9 +40,9 @@ export async function POST(req: Request) {
 
     if (confidence < 0.3 || chunks.length === 0) {
       return Response.json({
-        summary: `I don't have specific information about this procedure yet. Please check the official government website for ${
-          COUNTRY_NAMES[country] || country
-        }.`,
+        summary: t(language, 'chatNoSpecificInfo', {
+          country: COUNTRY_NAMES[country] || country,
+        }),
         steps: [],
         documents: [],
         office: null,

@@ -1,6 +1,8 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
+import { finalizeRelocationJourney } from '@/lib/ai/grounding';
+import { t } from '@/lib/i18n';
 import {
   SupportedCountryInputSchema,
   SupportedLanguageInputSchema,
@@ -262,13 +264,13 @@ export async function POST(req: Request) {
         title: `Relocation plan for ${COUNTRY_NAMES[to_country] || to_country}`,
         phases: [],
         warnings: [
-          `Limited official procedure information is currently available for ${
-            COUNTRY_NAMES[to_country] || to_country
-          }.`,
-          `Missing grounded coverage for: ${retrievalPlan
-            .map((plan) => plan.label)
-            .join(', ')}.`,
-          'Verify visa, registration, and permit requirements on official government websites before acting.',
+          t(language, 'journeyLimitedInfo', {
+            country: COUNTRY_NAMES[to_country] || to_country,
+          }),
+          t(language, 'journeyMissingCoverage', {
+            areas: retrievalPlan.map((plan) => plan.label).join(', '),
+          }),
+          t(language, 'journeyVerifyRequirements'),
         ],
         estimated_total_cost: null,
       });
@@ -293,17 +295,14 @@ Context from ${COUNTRY_NAMES[to_country] || to_country} official sources:
 ${context}`,
     });
 
-    const warnings = [...object.warnings];
-    if (missingAreas.length > 0) {
-      warnings.push(
-        `Some parts of this plan rely on limited official source coverage. Double-check these areas on official sources: ${missingAreas.join(', ')}.`,
-      );
-    }
-
-    return Response.json({
-      ...object,
-      warnings,
-    });
+    return Response.json(
+      finalizeRelocationJourney(object, {
+        language,
+        countryName: COUNTRY_NAMES[to_country] || to_country,
+        groundedAreas,
+        missingAreas,
+      }),
+    );
   } catch (error) {
     console.error('Journey route error:', error);
     return Response.json(

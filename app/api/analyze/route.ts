@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
 import {
   SupportedCountryInputSchema,
+  SupportedLanguageInputSchema,
   normalizeDocumentType,
 } from '@/lib/ai/request-schemas';
 import { extractTextFromUrl } from '@/lib/extract';
@@ -21,6 +22,7 @@ const analyzeRequestSchema = z
       .transform(normalizeDocumentType)
       .default('contract'),
     country: SupportedCountryInputSchema.default('DE'),
+    language: SupportedLanguageInputSchema.default('en'),
   })
   .refine((data) => Boolean(data.text || data.file_url), {
     message: 'Either text or file_url is required',
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { text, file_url, document_type, country } = payload.data;
+    const { text, file_url, document_type, country, language } = payload.data;
 
     let documentText = text;
     if (!documentText && file_url) {
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
     const { object } = await generateObject({
       model: getModelId(),
       schema: DocumentRiskSchema,
-      system: buildAnalyzeSystemPrompt(country, document_type),
+      system: buildAnalyzeSystemPrompt(country, document_type, language),
       prompt: `Document type: ${document_type}
 Country jurisdiction: ${COUNTRY_NAMES[country] || country}
 
