@@ -80,7 +80,7 @@ function AskPageInner() {
   const searchParams = useSearchParams();
   const initialQ = searchParams.get("q") ?? "";
   const [isLoading, setIsLoading] = useState(false);
-  const [bureaucracyResponse, setBureaucracyResponse] = useState<BureaucracyResponse | null>(null);
+  const [bureaucracyResponse, setBureaucracyResponse] = useState<BureaucracyResponse & { _generatedAt?: string } | null>(null);
   const [documentAnalysis, setDocumentAnalysis] = useState<DocumentRiskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastCountry, setLastCountry] = useState<string>("BG");
