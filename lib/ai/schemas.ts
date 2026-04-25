@@ -24,6 +24,13 @@ export const officeInfoSchema = z.object({
   appointmentRequired: z.boolean().optional().describe("Whether appointment is needed"),
 })
 
+export const sourceSchema = z.object({
+  title: z.string().describe("Display title for the source"),
+  url: z.string().nullable().optional().describe("Source URL when available"),
+  kind: z.enum(["official", "knowledge_base", "document", "web"]).describe("Source type"),
+  isOfficial: z.boolean().describe("Whether this source is official or public-service"),
+})
+
 export const bureaucracyResponseSchema = z.object({
   summary: z.string().describe("A clear, concise summary of the procedure in 2-3 sentences"),
   procedureName: z.string().describe("Official name of the bureaucratic procedure"),
@@ -31,9 +38,15 @@ export const bureaucracyResponseSchema = z.object({
   totalEstimatedTime: z.string().describe("Total estimated time to complete the entire process"),
   steps: z.array(stepSchema).describe("Ordered list of steps to complete the procedure"),
   requiredDocuments: z.array(documentSchema).describe("List of all documents needed"),
+  keyPoints: z.array(z.string()).optional().describe("Most important facts to remember"),
+  checklist: z.array(z.string()).optional().describe("Actionable checklist items"),
   officeInfo: officeInfoSchema.describe("Information about the relevant office"),
   costs: z.string().optional().describe("Any fees or costs involved"),
   additionalNotes: z.string().optional().describe("Important notes, warnings, or tips"),
+  needsMoreContext: z.boolean().optional().describe("Whether the user should gather more context before relying on the answer"),
+  missingContext: z.array(z.string()).optional().describe("Specific missing information or evidence needed"),
+  followUpQuestions: z.array(z.string()).optional().describe("Concrete follow-up questions for the user"),
+  sources: z.array(sourceSchema).optional().describe("The sources used to build the answer"),
   relatedProcedures: z.array(z.string()).optional().describe("Related procedures the user might need"),
 })
 

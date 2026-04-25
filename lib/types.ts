@@ -6,21 +6,38 @@ import { z } from 'zod';
 // ============================================================
 
 // --- Procedure Answer (Chat Q&A) ---
-export const ProcedureAnswerSchema = z.object({
+export const SourceCitationSchema = z.object({
+  title: z.string(),
+  url: z.string().nullable(),
+  kind: z.enum(['official', 'knowledge_base', 'document', 'web']),
+  is_official: z.boolean(),
+});
+export type SourceCitation = z.infer<typeof SourceCitationSchema>;
+
+export const ProcedureAnswerModelSchema = z.object({
   summary: z.string(),
   steps: z.array(z.string()),
   documents: z.array(z.string()),
+  key_points: z.array(z.string()),
+  checklist: z.array(z.string()),
   office: z.string().nullable(),
   fee_info: z.string().nullable(),
   source_url: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   answerable: z.boolean(),
+  needs_more_context: z.boolean(),
+  missing_context: z.array(z.string()),
+  follow_up_questions: z.array(z.string()),
+});
+export const ProcedureAnswerSchema = ProcedureAnswerModelSchema.extend({
+  used_sources: z.array(SourceCitationSchema).optional(),
 });
 export type ProcedureAnswer = z.infer<typeof ProcedureAnswerSchema>;
 
 // --- Document Risk Analysis ---
-export const DocumentRiskSchema = z.object({
+export const DocumentRiskModelSchema = z.object({
   risk_level: z.enum(['low', 'medium', 'high']),
+  difficulty: z.enum(['easy', 'moderate', 'complex']),
   summary: z.string(),
   risks: z.array(z.object({
     clause: z.string(),
@@ -30,7 +47,16 @@ export const DocumentRiskSchema = z.object({
   })),
   missing_clauses: z.array(z.string()),
   positive_points: z.array(z.string()),
+  key_points: z.array(z.string()),
+  checklist: z.array(z.string()),
   verdict: z.string(),
+  confidence: z.number().min(0).max(1),
+  needs_more_context: z.boolean(),
+  missing_context: z.array(z.string()),
+  follow_up_questions: z.array(z.string()),
+});
+export const DocumentRiskSchema = DocumentRiskModelSchema.extend({
+  used_sources: z.array(SourceCitationSchema).optional(),
 });
 export type DocumentRisk = z.infer<typeof DocumentRiskSchema>;
 

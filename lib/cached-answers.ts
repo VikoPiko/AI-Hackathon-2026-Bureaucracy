@@ -154,7 +154,7 @@ export const CACHED_CHAT_ANSWERS: Record<string, ProcedureAnswer> = {
     confidence: 0.87,
     answerable: true,
   },
-};
+} as unknown as Record<string, ProcedureAnswer>;
 
 export const CACHED_JOURNEY_ANSWERS: Record<string, RelocationJourney> = {
   q1: {
@@ -383,7 +383,44 @@ export const CACHED_DOCUMENT_RISK: Record<string, DocumentRisk> = {
     verdict:
       'Review the restrictive clauses and confirm sponsorship details in writing before signing.',
   },
-};
+} as unknown as Record<string, DocumentRisk>;
+
+function enrichProcedureAnswer(answer: ProcedureAnswer): ProcedureAnswer {
+  return {
+    ...answer,
+    key_points: answer.key_points ?? [
+      answer.summary,
+      ...(answer.office ? [`Office: ${answer.office}`] : []),
+      ...(answer.fee_info ? [`Fee: ${answer.fee_info}`] : []),
+    ],
+    checklist: answer.checklist ?? [
+      ...answer.documents.map((document) => `Gather ${document}`),
+      ...answer.steps,
+    ],
+    needs_more_context: answer.needs_more_context ?? !answer.answerable,
+    missing_context: answer.missing_context ?? [],
+    follow_up_questions: answer.follow_up_questions ?? [],
+  };
+}
+
+function enrichDocumentRisk(answer: DocumentRisk): DocumentRisk {
+  return {
+    ...answer,
+    difficulty: answer.difficulty ?? 'moderate',
+    key_points: answer.key_points ?? [
+      answer.summary,
+      ...answer.risks.slice(0, 2).map((item) => item.risk),
+    ],
+    checklist: answer.checklist ?? [
+      ...answer.missing_clauses.map((item) => `Ask for: ${item}`),
+      ...answer.risks.map((item) => item.recommendation),
+    ],
+    confidence: answer.confidence ?? 0.8,
+    needs_more_context: answer.needs_more_context ?? false,
+    missing_context: answer.missing_context ?? [],
+    follow_up_questions: answer.follow_up_questions ?? [],
+  };
+}
 
 function normalize(value: string | null | undefined): string {
   return (value || '').trim().toLowerCase();
@@ -401,7 +438,8 @@ export function isDemoMode(): boolean {
 
 export function getCachedAnswer(id: string, mode: string): unknown | null {
   if (mode === 'chat') {
-    return CACHED_CHAT_ANSWERS[id] || null;
+    const answer = CACHED_CHAT_ANSWERS[id];
+    return answer ? enrichProcedureAnswer(answer) : null;
   }
   if (mode === 'journey') {
     return CACHED_JOURNEY_ANSWERS[id] || null;
@@ -410,7 +448,8 @@ export function getCachedAnswer(id: string, mode: string): unknown | null {
     return CACHED_COMPARISON_ANSWERS[id] || null;
   }
   if (mode === 'analyze') {
-    return CACHED_DOCUMENT_RISK[`${id}_sample`] || null;
+    const answer = CACHED_DOCUMENT_RISK[`${id}_sample`];
+    return answer ? enrichDocumentRisk(answer) : null;
   }
   return null;
 }

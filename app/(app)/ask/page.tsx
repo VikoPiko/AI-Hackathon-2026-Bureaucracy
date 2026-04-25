@@ -4,22 +4,33 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { AskInput } from "@/components/app/ask-input"
 import { AnswerDisplay } from "@/components/app/answer-display"
+import { DocumentAnalysisDisplay } from "@/components/app/document-analysis-display"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Lightbulb, X, RotateCcw, Sparkles } from "lucide-react"
-import { askQuestionStream } from "@/lib/ai/client"
+import { Loader2, Lightbulb, RotateCcw, Sparkles, X } from "lucide-react"
+import {
+  analyzeDocument,
+  askQuestionStream,
+  shouldUseDocumentAnalysis,
+} from "@/lib/ai/client"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
+import type { DocumentRisk } from "@/lib/types"
 
 const suggestions = [
   "How do I get a residence permit in Germany?",
+  "Review this employment contract for risks before I sign it.",
   "What documents do I need to register a company?",
-  "How to apply for a work visa?",
-  "What is the process to renew my passport?",
+  "What does this official letter require me to do next?",
 ]
+
+type AskResult =
+  | { kind: "procedure"; data: BureaucracyResponse }
+  | { kind: "document"; data: DocumentRisk }
+  | null
 
 export default function AskPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [response, setResponse] = useState<BureaucracyResponse | null>(null)
+  const [result, setResult] = useState<AskResult>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastQuestion, setLastQuestion] = useState<string>("")
   const [lastFile, setLastFile] = useState<File | undefined>(undefined)
@@ -28,27 +39,37 @@ export default function AskPage() {
   const handleSubmit = async (question: string, file?: File) => {
     setIsLoading(true)
     setError(null)
-    setResponse(null)
+    setResult(null)
     setLastQuestion(question)
     setLastFile(file)
-    setLiveStatus(file ? "Reading your attached document..." : "Searching the knowledge base...")
 
     try {
-      const data = await askQuestionStream({
-        question,
-        file,
-        onStatus: setLiveStatus,
-        onPartial: setResponse,
-      })
-      setResponse(data)
-      setLiveStatus("Done")
+      if (file && shouldUseDocumentAnalysis(question, file)) {
+        setLiveStatus("Reviewing your document for risks and missing clauses...")
+        const data = await analyzeDocument({
+          question,
+          file,
+        })
+        setResult({ kind: "document", data })
+        setLiveStatus("Done")
+      } else {
+        setLiveStatus(file ? "Reading your attached document..." : "Searching the knowledge base...")
+        const data = await askQuestionStream({
+          question,
+          file,
+          onStatus: setLiveStatus,
+          onPartial: (partial) => setResult({ kind: "procedure", data: partial }),
+        })
+        setResult({ kind: "procedure", data })
+        setLiveStatus("Done")
+      }
     } catch (err) {
       console.error("Analysis error:", err)
-      setResponse(null)
+      setResult(null)
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to analyze your question. Please try again.",
+          : "Failed to analyze your request. Please try again.",
       )
     } finally {
       setIsLoading(false)
@@ -56,7 +77,7 @@ export default function AskPage() {
   }
 
   const handleReset = () => {
-    setResponse(null)
+    setResult(null)
     setError(null)
     setLastQuestion("")
     setLastFile(undefined)
@@ -72,7 +93,7 @@ export default function AskPage() {
       >
         <h1 className="text-3xl font-bold tracking-tight">Ask FormWise</h1>
         <p className="text-muted-foreground">
-          Ask about a bureaucracy process, or attach a document and have the answer grounded in official guidance.
+          Ask about a procedure, or attach a document for either guided next steps or a structured risk review.
         </p>
       </motion.div>
 
@@ -85,7 +106,7 @@ export default function AskPage() {
       </motion.div>
 
       <AnimatePresence>
-        {!response && !isLoading && !error && (
+        {!result && !isLoading && !error && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -114,7 +135,7 @@ export default function AskPage() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isLoading && !response && (
+        {isLoading && !result && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -150,16 +171,14 @@ export default function AskPage() {
                 <X className="h-10 w-10 text-destructive" />
                 <div className="text-center">
                   <p className="font-medium text-destructive">{error}</p>
-                  {!lastFile && (
-                    <Button
-                      variant="outline"
-                      className="mt-4 gap-2"
-                      onClick={() => lastQuestion && handleSubmit(lastQuestion)}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Try Again
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    className="mt-4 gap-2"
+                    onClick={() => lastQuestion && handleSubmit(lastQuestion, lastFile)}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Try Again
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -168,7 +187,7 @@ export default function AskPage() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {response && (
+        {result && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -192,7 +211,12 @@ export default function AskPage() {
                 New Question
               </Button>
             </div>
-            <AnswerDisplay response={response} />
+
+            {result.kind === "procedure" ? (
+              <AnswerDisplay question={lastQuestion} response={result.data} />
+            ) : (
+              <DocumentAnalysisDisplay question={lastQuestion} response={result.data} />
+            )}
           </motion.div>
         )}
       </AnimatePresence>

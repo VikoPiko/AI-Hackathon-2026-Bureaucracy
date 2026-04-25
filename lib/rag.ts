@@ -30,6 +30,32 @@ const QUERY_INCLUDE = [
 
 const GET_INCLUDE = [IncludeEnum.Metadatas] as const;
 
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/i)
+    .filter((token) => token.length > 2);
+}
+
+function getLexicalScore(question: string, metadata: ProcedureChunkMetadata, chunk: string): number {
+  const queryTokens = new Set(tokenize(question));
+  if (queryTokens.size === 0) {
+    return 0;
+  }
+
+  const haystackTokens = new Set(
+    tokenize(`${metadata.title || ''} ${metadata.category || ''} ${chunk.slice(0, 600)}`),
+  );
+  let hits = 0;
+  queryTokens.forEach((token) => {
+    if (haystackTokens.has(token)) {
+      hits += 1;
+    }
+  });
+
+  return hits / queryTokens.size;
+}
+
 export function getChromaClient(): ChromaClient {
   if (!chromaInstance) {
     chromaInstance = new ChromaClient({
@@ -76,7 +102,7 @@ export async function retrieveContext(
 
     const results = await collection.query({
       queryEmbeddings: [embedding],
-      nResults: topK,
+      nResults: Math.max(topK * 2, topK),
       where: buildProcedureWhere(country, category),
       include: [...QUERY_INCLUDE],
     });
@@ -90,21 +116,30 @@ export async function retrieveContext(
         return [];
       }
 
+      const itemMetadata = metadata[index] || {};
+      const distance = distances[index] ?? 1;
+      const vectorScore = 1 - Math.min(distance, 2) / 2;
+      const lexicalScore = getLexicalScore(question, itemMetadata, chunk);
+
       return [
         {
           chunk,
-          source: metadata[index]?.source_url || '',
-          distance: distances[index] ?? 1,
-          metadata: metadata[index] || {},
+          source: itemMetadata.source_url || '',
+          distance,
+          metadata: itemMetadata,
+          rankingScore: vectorScore * 0.8 + lexicalScore * 0.2,
         },
       ];
     });
+    const rankedEntries = entries
+      .sort((a, b) => b.rankingScore - a.rankingScore)
+      .slice(0, topK);
 
     return {
-      chunks: entries.map((entry) => entry.chunk),
-      sources: entries.map((entry) => entry.source),
-      distances: entries.map((entry) => entry.distance),
-      metadata: entries.map((entry) => entry.metadata),
+      chunks: rankedEntries.map((entry) => entry.chunk),
+      sources: rankedEntries.map((entry) => entry.source),
+      distances: rankedEntries.map((entry) => entry.distance),
+      metadata: rankedEntries.map((entry) => entry.metadata),
     };
   } catch (error) {
     console.warn('[RAG] ChromaDB unavailable, returning empty context:', error);
@@ -170,7 +205,7 @@ export async function getCollectionStats() {
     return {
       name: collection.name,
       dimension: collection.metadata?.dimension,
-      count: collection.metadata?.numElements,
+      count: await collection.count(),
     };
   } catch {
     return null;

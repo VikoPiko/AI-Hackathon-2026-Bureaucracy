@@ -7,19 +7,24 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { 
-  FileText, 
-  MapPin, 
-  Clock, 
-  ExternalLink, 
-  Phone,
-  Calendar,
+import {
   AlertCircle,
+  Calendar,
   CheckCircle2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Clock,
+  Download,
+  ExternalLink,
+  FileText,
+  MapPin,
+  Phone,
 } from "lucide-react"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
+import {
+  downloadProcedureChecklist,
+  downloadProcedureReport,
+} from "@/lib/reports"
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -41,10 +46,11 @@ const itemVariants = {
 } as const
 
 interface AnswerDisplayProps {
+  question?: string
   response: BureaucracyResponse
 }
 
-export function AnswerDisplay({ response }: AnswerDisplayProps) {
+export function AnswerDisplay({ question = "Procedure guidance", response }: AnswerDisplayProps) {
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [checkedDocs, setCheckedDocs] = useState<string[]>([])
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
@@ -57,27 +63,31 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
     : 0
 
   const toggleStep = (stepNumber: number) => {
-    setCompletedSteps(prev =>
+    setCompletedSteps((prev) =>
       prev.includes(stepNumber)
-        ? prev.filter(n => n !== stepNumber)
-        : [...prev, stepNumber]
+        ? prev.filter((n) => n !== stepNumber)
+        : [...prev, stepNumber],
     )
   }
 
   const toggleDoc = (docName: string) => {
-    setCheckedDocs(prev =>
+    setCheckedDocs((prev) =>
       prev.includes(docName)
-        ? prev.filter(n => n !== docName)
-        : [...prev, docName]
+        ? prev.filter((n) => n !== docName)
+        : [...prev, docName],
     )
   }
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "easy": return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-      case "moderate": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-      case "complex": return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-      default: return "bg-secondary text-secondary-foreground"
+      case "easy":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+      case "moderate":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+      case "complex":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+      default:
+        return "bg-secondary text-secondary-foreground"
     }
   }
 
@@ -88,28 +98,124 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
       animate="visible"
       className="space-y-6"
     >
-      {/* Summary Card */}
       <motion.div variants={itemVariants}>
         <Card className="border-l-4 border-l-primary overflow-hidden">
           <CardHeader className="pb-3">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <Badge variant="outline" className={getDifficultyColor(response.difficulty)}>
-                {response.difficulty}
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <Clock className="h-3 w-3" />
-                {response.totalEstimatedTime}
-              </Badge>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className={getDifficultyColor(response.difficulty)}>
+                  {response.difficulty}
+                </Badge>
+                <Badge variant="secondary" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  {response.totalEstimatedTime}
+                </Badge>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => downloadProcedureChecklist(question, response)}
+                >
+                  <Download className="h-4 w-4" />
+                  Download Checklist
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => downloadProcedureReport(question, response)}
+                >
+                  <FileText className="h-4 w-4" />
+                  Download Report
+                </Button>
+              </div>
             </div>
             <CardTitle className="text-xl">{response.procedureName}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <p className="text-muted-foreground leading-relaxed">{response.summary}</p>
+            {response.keyPoints && response.keyPoints.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Key Points</h4>
+                <div className="flex flex-wrap gap-2">
+                  {response.keyPoints.map((point) => (
+                    <Badge key={point} variant="secondary" className="whitespace-normal text-left">
+                      {point}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Steps Timeline */}
+      {response.needsMoreContext && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-l-4 border-l-amber-500">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="font-medium">More context would make this answer stronger</h4>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      Gather the items below and ask again for a more complete answer.
+                    </p>
+                  </div>
+                  {response.missingContext && response.missingContext.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium mb-2">Missing context</h5>
+                      <ul className="space-y-1 text-sm text-muted-foreground">
+                        {response.missingContext.map((item) => (
+                          <li key={item}>- {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {response.followUpQuestions && response.followUpQuestions.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium mb-2">Follow-up questions</h5>
+                      <ul className="space-y-1 text-sm text-muted-foreground">
+                        {response.followUpQuestions.map((item) => (
+                          <li key={item}>- {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {response.checklist && response.checklist.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                Checklist
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {response.checklist.map((item) => (
+                <div
+                  key={item}
+                  className="flex items-start gap-3 rounded-lg border p-3 bg-card"
+                >
+                  <Checkbox checked={false} />
+                  <p className="text-sm text-muted-foreground">{item}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       <motion.div variants={itemVariants}>
         <Card>
           <CardHeader className="pb-3">
@@ -126,23 +232,21 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="relative">
-              {/* Timeline line */}
               <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-border" />
-              
+
               <div className="space-y-4">
-                {response.steps.map((step, index) => {
+                {response.steps.map((step) => {
                   const isCompleted = completedSteps.includes(step.number)
                   const isExpanded = expandedStep === step.number
-                  
+
                   return (
                     <div key={step.number} className="relative pl-12">
-                      {/* Step number circle */}
                       <motion.button
                         onClick={() => toggleStep(step.number)}
                         whileTap={{ scale: 0.95 }}
                         className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
-                          isCompleted 
-                            ? "border-primary bg-primary text-primary-foreground" 
+                          isCompleted
+                            ? "border-primary bg-primary text-primary-foreground"
                             : "border-border bg-background hover:border-primary/50"
                         }`}
                       >
@@ -152,8 +256,8 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                           <span className="text-sm font-medium">{step.number}</span>
                         )}
                       </motion.button>
-                      
-                      <div 
+
+                      <div
                         className={`rounded-lg border p-4 transition-all ${
                           isCompleted ? "bg-primary/5 border-primary/20" : "bg-card"
                         }`}
@@ -178,7 +282,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </Button>
                         </div>
-                        
+
                         {isExpanded && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
@@ -205,7 +309,6 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
         </Card>
       </motion.div>
 
-      {/* Document Checklist */}
       <motion.div variants={itemVariants}>
         <Card>
           <CardHeader className="pb-3">
@@ -224,22 +327,19 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <div className="space-y-3">
               {response.requiredDocuments.map((doc) => {
                 const isChecked = checkedDocs.includes(doc.name)
-                
+
                 return (
                   <motion.div
                     key={doc.name}
                     whileTap={{ scale: 0.99 }}
                     onClick={() => toggleDoc(doc.name)}
                     className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                      isChecked 
-                        ? "bg-primary/5 border-primary/20" 
+                      isChecked
+                        ? "bg-primary/5 border-primary/20"
                         : "bg-card hover:border-primary/30"
                     }`}
                   >
-                    <Checkbox 
-                      checked={isChecked}
-                      className="mt-0.5"
-                    />
+                    <Checkbox checked={isChecked} className="mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className={`font-medium ${isChecked ? "line-through text-muted-foreground" : ""}`}>
@@ -262,7 +362,6 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
         </Card>
       </motion.div>
 
-      {/* Office Info Card */}
       <motion.div variants={itemVariants}>
         <Card className="bg-secondary/50">
           <CardHeader className="pb-3">
@@ -274,49 +373,49 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
           <CardContent>
             <div className="space-y-3">
               <h4 className="font-semibold text-lg">{response.officeInfo.name}</h4>
-              
+
               {response.officeInfo.address && (
                 <p className="text-muted-foreground flex items-start gap-2">
                   <MapPin className="h-4 w-4 flex-shrink-0 mt-1" />
                   {response.officeInfo.address}
                 </p>
               )}
-              
+
               {response.officeInfo.hours && (
                 <p className="text-muted-foreground flex items-start gap-2">
                   <Clock className="h-4 w-4 flex-shrink-0 mt-1" />
                   {response.officeInfo.hours}
                 </p>
               )}
-              
+
               {response.officeInfo.phone && (
                 <p className="text-muted-foreground flex items-start gap-2">
                   <Phone className="h-4 w-4 flex-shrink-0 mt-1" />
                   {response.officeInfo.phone}
                 </p>
               )}
-              
+
               {response.officeInfo.appointmentRequired && (
                 <p className="text-accent flex items-start gap-2">
                   <Calendar className="h-4 w-4 flex-shrink-0 mt-1" />
                   Appointment required
                 </p>
               )}
-              
+
               <div className="flex gap-3 pt-2">
                 {response.officeInfo.website && (
                   <Button variant="outline" size="sm" asChild className="gap-2">
                     <a href={response.officeInfo.website} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="h-4 w-4" />
-                      Visit Website
+                      Official Source
                     </a>
                   </Button>
                 )}
                 {response.officeInfo.address && (
                   <Button variant="outline" size="sm" asChild className="gap-2">
-                    <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(response.officeInfo.address)}`} 
-                      target="_blank" 
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(response.officeInfo.address)}`}
+                      target="_blank"
                       rel="noopener noreferrer"
                     >
                       <MapPin className="h-4 w-4" />
@@ -325,12 +424,16 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                   </Button>
                 )}
               </div>
+              {!response.officeInfo.website && response.sources && response.sources.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No official source was confirmed for this answer. Review the used sources below before relying on it.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Additional Notes */}
       {response.additionalNotes && (
         <motion.div variants={itemVariants}>
           <Card className="border-l-4 border-l-accent">
@@ -347,7 +450,46 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
         </motion.div>
       )}
 
-      {/* Costs */}
+      {response.sources && response.sources.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ExternalLink className="h-5 w-5 text-primary" />
+                Used Sources
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {response.sources.map((source) => (
+                <div key={`${source.title}-${source.url || "local"}`} className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{source.title}</p>
+                    <Badge variant={source.isOfficial ? "default" : "secondary"}>
+                      {source.isOfficial ? "Official" : source.kind.replace("_", " ")}
+                    </Badge>
+                  </div>
+                  {source.url ? (
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {source.url}
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Provided directly by the uploaded document or local knowledge base.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {response.costs && (
         <motion.div variants={itemVariants}>
           <Card>

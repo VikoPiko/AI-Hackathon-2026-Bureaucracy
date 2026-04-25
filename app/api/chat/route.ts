@@ -6,19 +6,31 @@ import {
   SupportedLanguageInputSchema,
 } from '@/lib/ai/request-schemas';
 import {
+  buildProcedureCitations,
+  pickOfficialSourceUrl,
+} from '@/lib/ai/source-citations';
+import {
   getGovernmentDomains,
-  pickBestSourceUrl,
   shouldUseGovernmentWebSearch,
 } from '@/lib/ai/gov-web-search';
+import { getPromptCacheOptions } from '@/lib/ai/prompt-cache';
 import { findCachedChatAnswer, isDemoMode } from '@/lib/cached-answers';
 import { extractTextFromFile } from '@/lib/extract';
 import { buildChatSystemPrompt } from '@/lib/prompts';
 import { buildContext, getConfidence, retrieveContext } from '@/lib/rag';
-import { COUNTRY_NAMES, ProcedureAnswerSchema, type ProcedureAnswer } from '@/lib/types';
+import {
+  COUNTRY_NAMES,
+  ProcedureAnswerModelSchema,
+  type ProcedureAnswer,
+} from '@/lib/types';
 
 export const maxDuration = 30;
 
-const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4.1-mini';
+const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-5.4-mini';
+
+function supportsTemperatureControl(modelId: string): boolean {
+  return !/^gpt-5($|-)/.test(modelId);
+}
 
 const streamHeaders = {
   'Cache-Control': 'no-cache, no-transform',
@@ -86,6 +98,7 @@ async function preparePrompt(input: ParsedChatRequest) {
   const { chunks, sources, distances, metadata } = await retrieveContext(
     input.question,
     input.country,
+    8,
   );
   const ragConfidence = getConfidence(distances);
   const preferredDomains = getGovernmentDomains(input.country);
@@ -121,9 +134,17 @@ Output requirements:
 - summary: 2-4 plain-text sentences only
 - steps: short action sentences only
 - documents: document names only
+- key_points: memorable takeaways only
+- checklist: concrete actions only
+- never include inline citations, markdown links, or raw URLs in summary, steps, key_points, or checklist
+- if context is weak, set needs_more_context=true and ask follow-up questions
 - source_url: one official URL`;
 
   return {
+    fileText,
+    chunks,
+    sources,
+    metadata,
     prompt,
     ragConfidence,
     useGovernmentSearch,
@@ -149,11 +170,45 @@ function createWebSearchTools(country: string, enabled: boolean) {
 
 function finalizeAnswer(
   answer: ProcedureAnswer,
-  sources: unknown[],
+  webSources: unknown[],
+  country: string,
+  prepared: Awaited<ReturnType<typeof preparePrompt>>,
+  uploadedFileName?: string | null,
 ): ProcedureAnswer {
+  const usedSources = buildProcedureCitations({
+    preferredDomains: getGovernmentDomains(country) || [],
+    ragMetadata: prepared.metadata,
+    ragSourceUrls: prepared.sources,
+    webSources,
+    uploadedFileName,
+  }).sort((a, b) => Number(b.is_official) - Number(a.is_official));
+  const officialSourceUrl =
+    pickOfficialSourceUrl(
+      getGovernmentDomains(country) || [],
+      [
+        answer.source_url,
+        ...prepared.sources,
+        ...usedSources.map((item) => item.url),
+      ],
+    );
+
   return {
     ...answer,
-    source_url: pickBestSourceUrl(answer.source_url, sources),
+    key_points: answer.key_points ?? [
+      answer.summary,
+      ...(answer.office ? [`Office: ${answer.office}`] : []),
+      ...(answer.fee_info ? [`Fee: ${answer.fee_info}`] : []),
+    ],
+    checklist: answer.checklist ?? [
+      ...answer.documents.map((item) => `Gather ${item}`),
+      ...answer.steps,
+    ],
+    needs_more_context:
+      answer.needs_more_context ?? (!answer.answerable || answer.confidence < 0.45),
+    missing_context: answer.missing_context ?? [],
+    follow_up_questions: answer.follow_up_questions ?? [],
+    source_url: officialSourceUrl,
+    used_sources: usedSources,
   };
 }
 
@@ -161,6 +216,12 @@ function createCallConfig(
   input: ParsedChatRequest,
   prepared: Awaited<ReturnType<typeof preparePrompt>>,
 ) {
+  const promptCache = getPromptCacheOptions({
+    modelId: CHAT_MODEL,
+    family: 'chat',
+    country: input.country,
+    language: input.language,
+  });
   const tools = createWebSearchTools(input.country, prepared.useGovernmentSearch);
   const toolChoice = prepared.useGovernmentSearch
     ? ({ type: 'tool', toolName: 'web_search' } as const)
@@ -172,10 +233,13 @@ function createCallConfig(
     prompt: prepared.prompt,
     tools,
     toolChoice,
-    output: Output.object({ schema: ProcedureAnswerSchema }),
+    output: Output.object({ schema: ProcedureAnswerModelSchema }),
+    ...(supportsTemperatureControl(CHAT_MODEL) ? { temperature: 0 } : {}),
     providerOptions: {
       openai: {
         store: false,
+        promptCacheKey: promptCache.promptCacheKey,
+        promptCacheRetention: promptCache.promptCacheRetention,
       },
     },
   } as const;
@@ -204,7 +268,15 @@ export async function POST(req: Request) {
         throw new Error('No structured output returned');
       }
 
-      return Response.json(finalizeAnswer(result.output, result.sources));
+      return Response.json(
+        finalizeAnswer(
+          result.output,
+          result.sources,
+          input.country,
+          prepared,
+          input.file?.name,
+        ),
+      );
     }
 
     const encoder = new TextEncoder();
@@ -247,7 +319,16 @@ export async function POST(req: Request) {
               result.sources,
             ]);
 
-            send('final', finalizeAnswer(output as ProcedureAnswer, sources));
+            send(
+              'final',
+              finalizeAnswer(
+                output as ProcedureAnswer,
+                sources,
+                input.country,
+                prepared,
+                input.file?.name,
+              ),
+            );
           } catch (error) {
             console.error('Chat stream error:', error);
             send('error', {

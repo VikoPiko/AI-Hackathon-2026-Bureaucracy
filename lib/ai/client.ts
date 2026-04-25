@@ -1,6 +1,9 @@
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
-import { saveHistoryEntry } from "@/lib/history/storage"
-import type { ProcedureAnswer } from "@/lib/types"
+import {
+  saveDocumentHistoryEntry,
+  saveHistoryEntry,
+} from "@/lib/history/storage"
+import type { DocumentRisk, ProcedureAnswer } from "@/lib/types"
 
 interface AskQuestionOptions {
   question: string
@@ -15,9 +18,18 @@ interface AskQuestionStreamOptions extends AskQuestionOptions {
   onPartial?: (response: BureaucracyResponse) => void
 }
 
+interface AnalyzeDocumentOptions {
+  question: string
+  file: File
+  country?: string
+  documentType?: string
+}
+
 type PartialProcedureAnswer = Partial<ProcedureAnswer> & {
   steps?: string[]
   documents?: string[]
+  key_points?: string[]
+  checklist?: string[]
 }
 
 function hasText(value: unknown): value is string {
@@ -40,6 +52,48 @@ export function inferCountry(question: string): string {
   if (normalized.includes("united kingdom") || normalized.includes("uk ")) return "GB"
 
   return "DE"
+}
+
+export function shouldUseDocumentAnalysis(question: string, file?: File): boolean {
+  if (!file) {
+    return false
+  }
+
+  const normalized = question.toLowerCase()
+  const keywords = [
+    "analyze",
+    "analysis",
+    "review",
+    "letter",
+    "notice",
+    "deadline",
+    "appeal",
+    "what does this mean",
+    "what do i need to do",
+    "risk",
+    "risky",
+    "safe to sign",
+    "sign this",
+    "clause",
+    "contract",
+    "agreement",
+    "lease",
+    "employment contract",
+    "rental contract",
+    "missing clause",
+    "verdict",
+  ]
+
+  return keywords.some((keyword) => normalized.includes(keyword))
+}
+
+function inferDocumentType(question: string, file: File): string {
+  const normalized = `${question} ${file.name}`.toLowerCase()
+
+  if (normalized.includes("rental") || normalized.includes("lease")) return "rental"
+  if (normalized.includes("employment") || normalized.includes("job")) return "employment"
+  if (normalized.includes("letter") || normalized.includes("notice")) return "official_letter"
+  return "contract"
 }
 
 function estimateDifficulty(answer: PartialProcedureAnswer): BureaucracyResponse["difficulty"] {
@@ -99,6 +153,8 @@ export function mapProcedureAnswerToUi(
       required: true,
       whereToGet: undefined,
     })),
+    keyPoints: answer.key_points || [],
+    checklist: answer.checklist || [],
     officeInfo: {
       name: officeName,
       website: hasText(answer.source_url) ? answer.source_url : undefined,
@@ -110,8 +166,17 @@ export function mapProcedureAnswerToUi(
     costs: hasText(answer.fee_info) ? answer.fee_info : undefined,
     additionalNotes:
       answer.answerable === false
-        ? "This answer has low confidence. Double-check the official source before acting."
+        ? "This answer still needs more context before you should rely on it."
         : undefined,
+    needsMoreContext: answer.needs_more_context,
+    missingContext: answer.missing_context || [],
+    followUpQuestions: answer.follow_up_questions || [],
+    sources: (answer.used_sources || []).map((source) => ({
+      title: source.title,
+      url: source.url,
+      kind: source.kind,
+      isOfficial: source.is_official,
+    })),
     relatedProcedures: undefined,
   }
 }
@@ -278,4 +343,38 @@ export async function askQuestionStream({
   }
 
   return mapProcedureAnswerToUi(question, finalAnswer)
+}
+
+export async function analyzeDocument({
+  question,
+  file,
+  country,
+  documentType,
+}: AnalyzeDocumentOptions): Promise<DocumentRisk> {
+  const resolvedCountry = country || inferCountry(question)
+  const resolvedType = documentType || inferDocumentType(question, file)
+  const formData = new FormData()
+  formData.set("question", question)
+  formData.set("country", resolvedCountry)
+  formData.set("document_type", resolvedType)
+  formData.set("file", file)
+
+  const res = await fetch("/api/analyze", {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!res.ok) {
+    throw new Error("Failed to analyze document")
+  }
+
+  const answer = (await res.json()) as DocumentRisk
+  saveDocumentHistoryEntry({
+    question,
+    country: resolvedCountry,
+    answer,
+    fileName: file.name,
+  })
+
+  return answer
 }
