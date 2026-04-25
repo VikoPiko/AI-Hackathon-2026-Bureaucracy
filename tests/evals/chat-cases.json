@@ -1,0 +1,56 @@
+[
+  {
+    "id": "de-address-registration",
+    "question": "How do I register my address after moving to Germany?",
+    "country": "DE",
+    "language": "en",
+    "expects_more_context": false,
+    "must_include_any": ["Burgeramt", "Wohnungsgeber", "Anmeldung", "registration form"],
+    "min_non_empty_sections": 7
+  },
+  {
+    "id": "es-family-reunification",
+    "question": "I want to bring my elderly mother to live with me in Spain under family reunification. What is the full process?",
+    "country": "ES",
+    "language": "en",
+    "expects_more_context": false,
+    "must_include_any": ["Oficina de Extranjeria", "housing", "income", "EX-02"],
+    "min_non_empty_sections": 7
+  },
+  {
+    "id": "de-official-letter",
+    "question": "I received an official letter from the German immigration office. What do they typically want and what are my deadlines?",
+    "country": "DE",
+    "language": "en",
+    "expects_more_context": false,
+    "must_include_any": ["deadline", "case number", "Ausländerbehörde", "documents requested"],
+    "min_non_empty_sections": 6
+  },
+  {
+    "id": "de-underspecified-case",
+    "question": "Can I stay in Germany long-term?",
+    "country": "DE",
+    "language": "en",
+    "expects_more_context": true,
+    "must_include_any": ["nationality", "current status", "visa", "residence permit"],
+    "min_non_empty_sections": 2
+  },
+  {
+    "id": "nl-partner-visa",
+    "question": "My Indian partner wants to join me in the Netherlands. What visa and permits does she need?",
+    "country": "NL",
+    "language": "en",
+    "expects_more_context": false,
+    "must_include_any": ["IND", "MVV", "sponsor", "residence permit"],
+    "min_non_empty_sections": 7
+  },
+  {
+    "id": "pt-retirement-d7",
+    "question": "I want to retire in Portugal. I am British and have pension income. What should I prepare for the D7 route?",
+    "country": "PT",
+    "language": "en",
+    "expects_more_context": false,
+    "must_include_any": ["D7", "AIMA", "NIF", "passive income"],
+    "min_non_empty_sections": 7
+  }
+]
