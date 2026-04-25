@@ -6,11 +6,12 @@ import { AskInput } from "@/components/app/ask-input"
 import { AnswerDisplay } from "@/components/app/answer-display"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, Lightbulb, X, RotateCcw } from "lucide-react"
+import { Loader2, Lightbulb, X, RotateCcw, Sparkles } from "lucide-react"
+import { askQuestionStream } from "@/lib/ai/client"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
 
 const suggestions = [
-  "How do I get a residence permit in Bulgaria?",
+  "How do I get a residence permit in Germany?",
   "What documents do I need to register a company?",
   "How to apply for a work visa?",
   "What is the process to renew my passport?",
@@ -21,39 +22,34 @@ export default function AskPage() {
   const [response, setResponse] = useState<BureaucracyResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastQuestion, setLastQuestion] = useState<string>("")
+  const [lastFile, setLastFile] = useState<File | undefined>(undefined)
+  const [liveStatus, setLiveStatus] = useState<string>("")
 
   const handleSubmit = async (question: string, file?: File) => {
     setIsLoading(true)
     setError(null)
+    setResponse(null)
     setLastQuestion(question)
+    setLastFile(file)
+    setLiveStatus(file ? "Reading your attached document..." : "Searching the knowledge base...")
 
     try {
-      // TODO: Handle file upload with UploadThing
-      let documentContext: string | undefined
-      if (file) {
-        // For now, just note that a file was attached
-        documentContext = `User attached a file: ${file.name} (${file.type})`
-      }
-
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          question, 
-          country: "Bulgaria",
-          documentContext 
-        }),
+      const data = await askQuestionStream({
+        question,
+        file,
+        onStatus: setLiveStatus,
+        onPartial: setResponse,
       })
-
-      if (!res.ok) {
-        throw new Error("Failed to analyze")
-      }
-
-      const data = await res.json()
-      setResponse(data.response)
+      setResponse(data)
+      setLiveStatus("Done")
     } catch (err) {
       console.error("Analysis error:", err)
-      setError("Failed to analyze your question. Please try again.")
+      setResponse(null)
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to analyze your question. Please try again.",
+      )
     } finally {
       setIsLoading(false)
     }
@@ -63,11 +59,12 @@ export default function AskPage() {
     setResponse(null)
     setError(null)
     setLastQuestion("")
+    setLastFile(undefined)
+    setLiveStatus("")
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -75,11 +72,10 @@ export default function AskPage() {
       >
         <h1 className="text-3xl font-bold tracking-tight">Ask FormWise</h1>
         <p className="text-muted-foreground">
-          Ask any question about bureaucratic procedures and get step-by-step guidance.
+          Ask about a bureaucracy process, or attach a document and have the answer grounded in official guidance.
         </p>
       </motion.div>
 
-      {/* Input Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -88,7 +84,6 @@ export default function AskPage() {
         <AskInput onSubmit={handleSubmit} isLoading={isLoading} />
       </motion.div>
 
-      {/* Suggestions - only show when no response */}
       <AnimatePresence>
         {!response && !isLoading && !error && (
           <motion.div
@@ -118,9 +113,8 @@ export default function AskPage() {
         )}
       </AnimatePresence>
 
-      {/* Loading State */}
       <AnimatePresence>
-        {isLoading && (
+        {isLoading && !response && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -133,9 +127,9 @@ export default function AskPage() {
                   <div className="absolute inset-0 h-10 w-10 animate-ping rounded-full bg-primary/20" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium">Analyzing your question...</p>
+                  <p className="font-medium">Analyzing your request...</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    This usually takes a few seconds
+                    {liveStatus || "This usually takes a few seconds"}
                   </p>
                 </div>
               </CardContent>
@@ -144,7 +138,6 @@ export default function AskPage() {
         )}
       </AnimatePresence>
 
-      {/* Error State */}
       <AnimatePresence>
         {error && !isLoading && (
           <motion.div
@@ -157,14 +150,16 @@ export default function AskPage() {
                 <X className="h-10 w-10 text-destructive" />
                 <div className="text-center">
                   <p className="font-medium text-destructive">{error}</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4 gap-2"
-                    onClick={() => lastQuestion && handleSubmit(lastQuestion)}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Try Again
-                  </Button>
+                  {!lastFile && (
+                    <Button
+                      variant="outline"
+                      className="mt-4 gap-2"
+                      onClick={() => lastQuestion && handleSubmit(lastQuestion)}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Try Again
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -172,19 +167,26 @@ export default function AskPage() {
         )}
       </AnimatePresence>
 
-      {/* Response Display */}
       <AnimatePresence>
-        {response && !isLoading && (
+        {response && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className="space-y-4"
           >
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Results for: <span className="font-medium text-foreground">{lastQuestion}</span>
-              </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Results for: <span className="font-medium text-foreground">{lastQuestion}</span>
+                </p>
+                {isLoading && (
+                  <p className="text-sm text-primary flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    {liveStatus || "Streaming answer..."}
+                  </p>
+                )}
+              </div>
               <Button variant="ghost" size="sm" onClick={handleReset} className="gap-2">
                 <RotateCcw className="h-4 w-4" />
                 New Question

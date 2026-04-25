@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef } from "react"
-import { motion, useScroll, useTransform, useMotionValue, useSpring } from "motion/react"
+import { motion, useScroll, useTransform, useMotionValue, useSpring, type Variants } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Sparkles, FileText, CheckCircle } from "lucide-react"
 
@@ -14,7 +14,7 @@ const containerVariants = {
       delayChildren: 0.3,
     },
   },
-}
+} as const
 
 const itemVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -23,9 +23,9 @@ const itemVariants = {
     y: 0,
     transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
   },
-}
+} as const
 
-const floatingVariants = {
+const floatingVariants: Variants = {
   float: {
     y: [-10, 10, -10],
     transition: {

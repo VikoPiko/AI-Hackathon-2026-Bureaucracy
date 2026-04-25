@@ -9,7 +9,7 @@ services:
       - CHROMA_SERVER_HOST=0.0.0.0
       - ANONYMIZED_TELEMETRY=false
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
       interval: 5s
       timeout: 3s
       retries: 5

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Send, Loader2, Upload, X, FileText, Image as ImageIcon } from "lucide-react"
+import { Send, Loader2, Upload, X, FileText } from "lucide-react"
 
 interface AskInputProps {
   onSubmit: (question: string, file?: File) => void
@@ -44,7 +44,12 @@ export function AskInput({ onSubmit, isLoading, placeholder }: AskInputProps) {
   }
 
   const isValidFile = (file: File) => {
-    const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"]
+    const validTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "text/plain",
+    ]
     return validTypes.includes(file.type) && file.size <= 10 * 1024 * 1024 // 10MB limit
   }
 
@@ -56,9 +61,6 @@ export function AskInput({ onSubmit, isLoading, placeholder }: AskInputProps) {
   }
 
   const getFileIcon = (file: File) => {
-    if (file.type.startsWith("image/")) {
-      return <ImageIcon className="h-5 w-5" />
-    }
     return <FileText className="h-5 w-5" />
   }
 
@@ -123,7 +125,7 @@ export function AskInput({ onSubmit, isLoading, placeholder }: AskInputProps) {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,image/png,image/jpeg,image/jpg"
+              accept=".pdf,.doc,.docx,.txt"
               onChange={handleFileChange}
               className="hidden"
               id="file-upload"
@@ -140,7 +142,7 @@ export function AskInput({ onSubmit, isLoading, placeholder }: AskInputProps) {
               Attach Document
             </Button>
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              PDF or images up to 10MB
+              PDF, DOCX, DOC, or TXT up to 10MB
             </span>
           </div>
 

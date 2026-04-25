@@ -15,6 +15,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from "motion/react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, X, Shield, Zap, Users } from "lucide-react"
+import { askQuestionStream } from "@/lib/ai/client"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
 
 const trustBadges = [
@@ -30,6 +31,7 @@ export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState<BureaucracyResponse | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [liveStatus, setLiveStatus] = useState("")
   const demoRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -52,24 +54,22 @@ export default function LandingPage() {
 
     setIsLoading(true)
     setResponse(null)
+    setLiveStatus("Searching the knowledge base...")
 
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, country: "Bulgaria" }),
+      const data = await askQuestionStream({
+        question,
+        onStatus: setLiveStatus,
+        onPartial: setResponse,
       })
-
-      if (!res.ok) throw new Error("Failed to analyze")
-
-      const data = await res.json()
-      setResponse(data.response)
+      setResponse(data)
       
       if (!user) {
         markTrialUsed()
       }
     } catch (error) {
       console.error("Demo error:", error)
+      setResponse(null)
     } finally {
       setIsLoading(false)
     }
@@ -140,7 +140,7 @@ export default function LandingPage() {
               className="py-12 px-4 sm:px-6"
             >
               <div className="mx-auto max-w-4xl">
-                {isLoading ? (
+                {isLoading && !response ? (
                   <Card className="p-12">
                     <CardContent className="flex flex-col items-center justify-center gap-4 pt-6">
                       <motion.div
@@ -149,7 +149,9 @@ export default function LandingPage() {
                       >
                         <Loader2 className="h-8 w-8 text-primary" />
                       </motion.div>
-                      <p className="text-muted-foreground">Analyzing your question...</p>
+                      <p className="text-muted-foreground">
+                        {liveStatus || "Analyzing your question..."}
+                      </p>
                     </CardContent>
                   </Card>
                 ) : response ? (

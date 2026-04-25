@@ -12,10 +12,13 @@
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import { ChromaClient, IncludeEnum } from 'chromadb';
+import { loadLocalEnv } from './load-env';
 
 // Import chunk and embed functions from lib
 import { chunkText } from '../lib/chunk';
 import { embedBatch } from '../lib/embed';
+
+loadLocalEnv();
 
 const chroma = new ChromaClient({ path: process.env.CHROMA_URL || 'http://localhost:8000' });
 

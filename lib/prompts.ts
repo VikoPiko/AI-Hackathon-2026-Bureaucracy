@@ -1,6 +1,5 @@
 import { COUNTRY_NAMES } from './types';
 
-// Language names map
 const LANG_NAMES: Record<string, string> = {
   en: 'English',
   de: 'German',
@@ -55,26 +54,26 @@ export function buildChatSystemPrompt(language: string, country: string): string
 You help expats, foreign nationals, and locals navigate official government procedures.
 Your users are often stressed: moving abroad, language barriers, unsure of their legal rights.
 
-RULES — never violate these:
-1. Only use information from the provided context. Never invent procedures, document names, fees, or office names.
-2. If context is insufficient: answerable=false, confidence below 0.4, summary states this clearly.
-3. Every step must name the exact office, what to bring, and what to do there.
-4. Always include the official local-language name of documents and offices in parentheses.
-5. If any step requires speaking the local language, say so and suggest bringing a translator.
-6. Fee: if free -> 'Free (gratis)'. If unknown -> null.
-7. Confidence scale: 0.85-1.0 = complete answer | 0.5-0.85 = partial | below 0.5 = insufficient.
-8. Respond entirely in ${LANG_NAMES[language] || 'English'}.
+RULES - never violate these:
+1. Only use grounded information from these sources: provided RAG context, uploaded document excerpts, and official/public-service web search results. Never invent procedures, document names, fees, deadlines, or office names.
+2. Prefer official government and public-service sources over general websites. If sources conflict, prefer the more specific and more current official source.
+3. If grounding is still insufficient: answerable=false, confidence below 0.4, and say clearly what must be verified.
+4. Every step must name the exact office, what to bring, and what to do there whenever the sources support it.
+5. Always include the official local-language name of documents and offices in parentheses when available.
+6. If any step requires speaking the local language, say so and suggest bringing a translator.
+7. Fee: if free -> 'Free (gratis)'. If unknown -> null.
+8. Confidence scale: 0.85-1.0 = complete answer | 0.5-0.85 = partial | below 0.5 = insufficient.
+9. Respond entirely in ${LANG_NAMES[language] || 'English'}.
+10. summary must be plain text only, 2-4 sentences, with no markdown, bullets, citations, or numbered lists.
+11. steps must be an array of short action-oriented sentences. No markdown, no numbering, no nested bullets.
+12. documents must be an array of document names only. Do not include categories, metadata keys, or explanations in the array values.
+13. office must be a single office name string. source_url must be one official URL only.
 
 Output ONLY the JSON object. No preamble. No markdown fences.`;
 }
 
-/**
- * Build system prompt for document analysis
- */
 export function buildAnalyzeSystemPrompt(country: string, documentType: string): string {
   const countryName = COUNTRY_NAMES[country] || country;
-  
-  // Country-specific legal standards
   const standards = LEGAL_STANDARDS[country]?.[documentType] || DEFAULT_STANDARDS;
 
   return `You are a legal document analyst specializing in ${countryName} contracts and official documents.

@@ -1,48 +1,9 @@
-<<<<<<< HEAD
-import { ChromaClient, IncludeEnum } from 'chromadb';
-=======
 import { ChromaClient, IncludeEnum, type Where } from 'chromadb';
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
 import { embedText } from './embed';
 
 let chromaInstance: ChromaClient | null = null;
 
-<<<<<<< HEAD
-/**
- * Get or create the ChromaDB singleton instance
- * Supports both local (docker) and remote (Railway) URLs
- */
-export function getChromaClient(): ChromaClient {
-  if (!chromaInstance) {
-    const chromaUrl = process.env.CHROMA_URL || 'http://localhost:8000';
-    
-    chromaInstance = new ChromaClient({ 
-      path: chromaUrl 
-    });
-  }
-  return chromaInstance;
-}
-
-/**
- * Get the current ChromaDB URL being used
- */
-export function getChromaUrl(): string {
-  return process.env.CHROMA_URL || 'http://localhost:8000';
-}
-
-/**
- * Check if ChromaDB is configured for local development
- */
-export function isLocalChroma(): boolean {
-  const url = getChromaUrl();
-  return url.includes('localhost') || url.includes('127.0.0.1');
-}
-
-// Type for ChromaDB metadata
-interface ChromaMetadata {
-=======
 export interface ProcedureChunkMetadata {
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
   country?: string;
   category?: string;
   source_url?: string;
@@ -52,54 +13,6 @@ export interface ProcedureChunkMetadata {
   difficulty?: string;
 }
 
-<<<<<<< HEAD
-/**
- * Retrieve relevant context chunks from ChromaDB for a question
- */
-export async function retrieveContext(
-  question: string, 
-  country: string, 
-  topK = 6,
-  category?: string
-) {
-  const chroma = getChromaClient();
-  
-  // Get or create collection - ChromaDB v2 API
-  const collection = await chroma.getOrCreateCollection({
-    name: 'procedures',
-    metadata: { 'hnsw:space': 'cosine' },
-  });
-
-  const embedding = await embedText(question);
-
-  // Build where clause for filtering
-  const where: Record<string, string | Record<string, unknown>> = { country };
-  if (category) {
-    where.category = category;
-  }
-
-  const results = await collection.query({
-    queryEmbeddings: [embedding],
-    nResults: topK,
-    where,
-    include: [IncludeEnum.Documents, IncludeEnum.Metadatas, IncludeEnum.Distances],
-  });
-
-  return {
-    chunks: (results.documents?.[0] || []) as string[],
-    sources: ((results.metadatas?.[0] || []) as ChromaMetadata[]).map(m => m?.source_url || ''),
-    distances: (results.distances?.[0] || []) as number[],
-    metadata: (results.metadatas?.[0] || []) as ChromaMetadata[],
-  };
-}
-
-/**
- * Build context string from chunks and sources for LLM prompt
- */
-export function buildContext(chunks: string[], sources: string[]): string {
-  if (!chunks.length) return 'No relevant context found in the knowledge base.';
-  return chunks.map((c, i) => `[Source: ${sources[i] || 'Unknown'}]\n${c}`).join('\n\n---\n\n');
-=======
 export interface RetrievedContext {
   chunks: string[];
   sources: string[];
@@ -157,41 +70,51 @@ export async function retrieveContext(
   topK = 6,
   category?: string,
 ): Promise<RetrievedContext> {
-  const collection = await getProceduresCollection();
-  const embedding = await embedText(question);
+  try {
+    const collection = await getProceduresCollection();
+    const embedding = await embedText(question);
 
-  const results = await collection.query({
-    queryEmbeddings: [embedding],
-    nResults: topK,
-    where: buildProcedureWhere(country, category),
-    include: [...QUERY_INCLUDE],
-  });
+    const results = await collection.query({
+      queryEmbeddings: [embedding],
+      nResults: topK,
+      where: buildProcedureWhere(country, category),
+      include: [...QUERY_INCLUDE],
+    });
 
-  const documents = (results.documents?.[0] || []) as (string | null)[];
-  const metadata = (results.metadatas?.[0] || []) as (ProcedureChunkMetadata | null)[];
-  const distances = (results.distances?.[0] || []) as number[];
+    const documents = (results.documents?.[0] || []) as (string | null)[];
+    const metadata = (results.metadatas?.[0] || []) as (ProcedureChunkMetadata | null)[];
+    const distances = (results.distances?.[0] || []) as number[];
 
-  const entries = documents.flatMap((chunk, index) => {
-    if (!chunk) {
-      return [];
-    }
+    const entries = documents.flatMap((chunk, index) => {
+      if (!chunk) {
+        return [];
+      }
 
-    return [
-      {
-        chunk,
-        source: metadata[index]?.source_url || '',
-        distance: distances[index] ?? 1,
-        metadata: metadata[index] || {},
-      },
-    ];
-  });
+      return [
+        {
+          chunk,
+          source: metadata[index]?.source_url || '',
+          distance: distances[index] ?? 1,
+          metadata: metadata[index] || {},
+        },
+      ];
+    });
 
-  return {
-    chunks: entries.map((entry) => entry.chunk),
-    sources: entries.map((entry) => entry.source),
-    distances: entries.map((entry) => entry.distance),
-    metadata: entries.map((entry) => entry.metadata),
-  };
+    return {
+      chunks: entries.map((entry) => entry.chunk),
+      sources: entries.map((entry) => entry.source),
+      distances: entries.map((entry) => entry.distance),
+      metadata: entries.map((entry) => entry.metadata),
+    };
+  } catch (error) {
+    console.warn('[RAG] ChromaDB unavailable, returning empty context:', error);
+    return {
+      chunks: [],
+      sources: [],
+      distances: [],
+      metadata: [],
+    };
+  }
 }
 
 export function buildContext(
@@ -217,15 +140,16 @@ export function buildContext(
       return `${heading}\n${chunk}`;
     })
     .join('\n\n---\n\n');
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
 }
 
 export function getConfidence(distances: number[]): number {
   if (!distances.length) {
-    return 0;
+    return 0.5;
   }
 
-  const best = 1 - Math.min(...distances);
+  // Chroma cosine distance is typically in the 0..2 range.
+  // Convert it into a softer 0..1 confidence score for prompting.
+  const best = 1 - Math.min(...distances) / 2;
   return Math.max(0, Math.min(1, best));
 }
 
@@ -242,42 +166,15 @@ export async function checkChromaHealth(): Promise<boolean> {
 
 export async function getCollectionStats() {
   try {
-<<<<<<< HEAD
-    // listCollections returns collection names/IDs (strings in v2)
-    const collectionNames = await chroma.listCollections();
-    
-    if (collectionNames.includes('procedures')) {
-      // getOrCreateCollection returns the collection object with name, metadata, etc.
-      const collection = await chroma.getOrCreateCollection({
-        name: 'procedures',
-      });
-      return {
-        name: collection.name,
-        dimension: collection.metadata?.dimension as number | undefined,
-        count: collection.metadata?.numElements as number | undefined,
-      };
-    }
-    return null;
-=======
     const collection = await getProceduresCollection();
     return {
       name: collection.name,
       dimension: collection.metadata?.dimension,
       count: collection.metadata?.numElements,
     };
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
   } catch {
     return null;
   }
 }
 
-<<<<<<< HEAD
-/**
- * Reset ChromaDB connection (useful when URL changes)
- */
-export function resetChromaClient(): void {
-  chromaInstance = null;
-}
-=======
 export { GET_INCLUDE };
->>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844

@@ -1,10 +1,11 @@
 import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { getModelId } from '@/lib/ai/providers';
 import {
   SupportedCountryInputSchema,
   SupportedLanguageInputSchema,
 } from '@/lib/ai/request-schemas';
+import { findCachedJourneyAnswer, isDemoMode } from '@/lib/cached-answers';
 import { buildJourneySystemPrompt } from '@/lib/prompts';
 import { retrieveContext, getConfidence } from '@/lib/rag';
 import { RelocationJourneySchema, COUNTRY_NAMES } from '@/lib/types';
@@ -178,8 +179,11 @@ function buildJourneyContext(entries: JourneyContextEntry[]): string {
 }
 
 export async function POST(req: Request) {
+  let body: unknown;
+
   try {
-    const payload = journeyRequestSchema.safeParse(await req.json());
+    body = await req.json();
+    const payload = journeyRequestSchema.safeParse(body);
     if (!payload.success) {
       return Response.json(
         {
@@ -192,6 +196,16 @@ export async function POST(req: Request) {
 
     const { from_country, to_country, nationality, purpose, language } =
       payload.data;
+    const cached = findCachedJourneyAnswer(
+      from_country,
+      to_country,
+      nationality,
+      purpose,
+    );
+
+    if (isDemoMode() && cached) {
+      return Response.json(cached);
+    }
 
     const retrievalPlan = buildJourneyRetrievalPlan(to_country, purpose);
     const retrievalResults = await Promise.all(
@@ -275,7 +289,7 @@ export async function POST(req: Request) {
     }
 
     const { object } = await generateObject({
-      model: getModelId(),
+      model: openai('gpt-4o') as never,
       schema: RelocationJourneySchema,
       system: buildJourneySystemPrompt(to_country, language),
       prompt: `Relocating from: ${from_country}
@@ -306,6 +320,18 @@ ${context}`,
     });
   } catch (error) {
     console.error('Journey route error:', error);
+    const fallbackPayload = journeyRequestSchema.safeParse(body);
+    if (fallbackPayload.success) {
+      const cached = findCachedJourneyAnswer(
+        fallbackPayload.data.from_country,
+        fallbackPayload.data.to_country,
+        fallbackPayload.data.nationality,
+        fallbackPayload.data.purpose,
+      );
+      if (cached) {
+        return Response.json(cached);
+      }
+    }
     return Response.json(
       { error: 'Failed to generate relocation journey' },
       { status: 500 },

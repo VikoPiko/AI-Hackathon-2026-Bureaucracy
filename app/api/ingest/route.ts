@@ -2,6 +2,7 @@ import { getChromaClient } from '@/lib/rag';
 import { extractTextFromUrl } from '@/lib/extract';
 import { chunkText } from '@/lib/chunk';
 import { embedBatch } from '@/lib/embed';
+import { ingestLogger } from '@/lib/logger';
 
 /**
  * POST /api/ingest
@@ -16,43 +17,68 @@ import { embedBatch } from '@/lib/embed';
 export async function POST(req: Request) {
   const { file_url, text_override, metadata } = await req.json();
 
-  const text = text_override ?? (file_url ? await extractTextFromUrl(file_url) : null);
-  if (!text) return Response.json({ error: 'No text provided' }, { status: 400 });
+  try {
+    if (!text_override && file_url) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
 
-  const chunks = chunkText(text);
-  if (chunks.length === 0) return Response.json({ error: 'No content extracted' }, { status: 400 });
+    const text = text_override ?? (file_url ? await extractTextFromUrl(file_url) : null);
+    if (!text) {
+      return Response.json({ error: 'No text provided' }, { status: 400 });
+    }
 
-  // Generate embeddings with retry logic (in embed.ts)
-  const embeddings = await embedBatch(chunks);
+    const chunks = chunkText(text);
+    const effectiveChunks = chunks.length > 0 && text.trim().length > 0 ? chunks : [text.trim()];
+    if (effectiveChunks.length === 0 || effectiveChunks[0].length === 0) {
+      return Response.json({ error: 'No content extracted' }, { status: 400 });
+    }
 
-  // Use singleton ChromaDB client from rag.ts
-  const chroma = getChromaClient();
-  
-  const collection = await chroma.getOrCreateCollection({
-    name: 'procedures',
-    metadata: { 'hnsw:space': 'cosine' },
-  });
+    const embeddings = await embedBatch(effectiveChunks);
 
-  const ts = Date.now();
-  const pid = metadata?.procedure_id || `doc-${ts}`;
-  const ids = chunks.map((_, i) => `${pid}-${i}-${ts}`);
-  const metadatas = chunks.map(() => ({
-    country:       metadata?.country      || 'DE',
-    category:      metadata?.category     || 'general',
-    source_url:    metadata?.source_url   || file_url || '',
-    language:      metadata?.language     || 'en',
-    procedure_id:  pid,
-    title:         metadata?.title        || '',
-    difficulty:    metadata?.difficulty   || 'moderate',
-  }));
+    const chroma = getChromaClient();
+    const collection = await chroma.getOrCreateCollection({
+      name: 'procedures',
+      metadata: { 'hnsw:space': 'cosine' },
+    });
 
-  await collection.upsert({ ids, documents: chunks, embeddings, metadatas });
+    const ts = Date.now();
+    const hasCustomProcedureId = Boolean(metadata?.procedure_id);
+    const pid = metadata?.procedure_id || `doc-${ts}`;
+    const ids = effectiveChunks.map((_, i) =>
+      hasCustomProcedureId ? `${pid}-chunk-${i}` : `${pid}-chunk-${i}-${ts}`,
+    );
+    const metadatas = effectiveChunks.map(() => ({
+      country: metadata?.country || 'DE',
+      category: metadata?.category || 'general',
+      source_url: metadata?.source_url || file_url || '',
+      language: metadata?.language || 'en',
+      procedure_id: pid,
+      title: metadata?.title || '',
+      difficulty: metadata?.difficulty || 'moderate',
+    }));
 
-  return Response.json({ 
-    chunks_created: chunks.length, 
-    procedure_id: pid,
-    timestamp: new Date().toISOString(),
-  });
+    await collection.upsert({ ids, documents: effectiveChunks, embeddings, metadatas });
+
+    ingestLogger.info('Ingest upsert completed', {
+      procedure_id: pid,
+      chunks_created: effectiveChunks.length,
+      from_file_url: Boolean(file_url),
+      has_text_override: Boolean(text_override),
+    });
+
+    return Response.json({
+      chunks_created: effectiveChunks.length,
+      procedure_id: pid,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    ingestLogger.error('Ingest failed', {
+      message: (error as Error).message,
+      file_url,
+      procedure_id: metadata?.procedure_id || null,
+    });
+    return Response.json({ error: 'Ingestion failed' }, { status: 500 });
+  }
 }
 
 /**
@@ -67,16 +93,24 @@ export async function DELETE(req: Request) {
     return Response.json({ error: 'procedure_id is required' }, { status: 400 });
   }
 
-  const chroma = getChromaClient();
-  const collection = await chroma.getOrCreateCollection({
-    name: 'procedures',
-    metadata: { 'hnsw:space': 'cosine' },
-  });
+  try {
+    const chroma = getChromaClient();
+    const collection = await chroma.getOrCreateCollection({
+      name: 'procedures',
+      metadata: { 'hnsw:space': 'cosine' },
+    });
 
-  // Delete all chunks belonging to this procedure
-  await collection.delete({
-    where: { procedure_id: procedureId },
-  });
+    await collection.delete({
+      where: { procedure_id: procedureId },
+    });
 
-  return Response.json({ deleted: procedureId });
+    ingestLogger.info('Ingest delete completed', { procedure_id: procedureId });
+    return Response.json({ deleted: procedureId });
+  } catch (error) {
+    ingestLogger.error('Ingest delete failed', {
+      message: (error as Error).message,
+      procedure_id: procedureId,
+    });
+    return Response.json({ error: 'Delete failed' }, { status: 500 });
+  }
 }

@@ -84,7 +84,7 @@ export function validateUrl(url: string): boolean {
 }
 
 export function formatValidationError(error: z.ZodError): { field: string; message: string }[] {
-  return error.errors.map(err => ({
+  return error.issues.map((err) => ({
     field: err.path.join('.'),
     message: err.message,
   }));

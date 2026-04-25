@@ -12,7 +12,6 @@
 import { readFile, writeFile, access } from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -138,7 +137,7 @@ async function setup() {
   }
 
   // Check Docker daemon is running
-  if (!(awaitcheckDockerRunning())) {
+  if (!(await checkDockerRunning())) {
     error('Docker daemon is not running. Please start Docker Desktop.');
     console.log('\n📝 Start Docker Desktop and restart this script.');
     process.exit(1);
@@ -195,7 +194,7 @@ async function setup() {
       warn('   - UPLOADTHING_SECRET');  
       warn('   - NEXT_PUBLIC_UPLOADTHING_APP_ID');
     } catch (err) {
-      error(`Failed to create .env.local: ${err.message}`);
+      error(`Failed to create .env.local: ${(err as Error).message}`);
     }
   } else {
     warn('.env.local.example not found - skipping');

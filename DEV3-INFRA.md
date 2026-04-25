@@ -2,191 +2,141 @@
 
 ## Overview
 
-This folder contains the infrastructure components for BureaucracyAI:
+Infrastructure ownership in this repo covers:
 - ChromaDB vector database setup (local + Railway)
-- Document ingestion pipeline
-- Embedding utilities
-- API routes for data management
+- ingest pipeline (`text_override` and `file_url`)
+- embedding client and retry behavior
+- procedures listing and infra health checks
+- upload-to-ingest integration path
 
-## Quick Start
+## Canonical Local Run Order
 
-### Local Development
 ```bash
-# Start ChromaDB locally
+npm install
 docker-compose up -d chromadb
 
-# Install dependencies
-npm install
-
-# Seed data (requires OPENAI_API_KEY)
-npx tsx scripts/seed.ts
-```
-
-### With Railway ChromaDB
-```bash
-# Set Railway URL
-export CHROMA_URL=https://your-chroma.railway.app
-
-# Run setup
+# optional bootstrap helper
 npx tsx scripts/setup.ts
+
+# infra checks
+npx tsx scripts/test-infra.ts
+
+# requires OPENAI_API_KEY or SIRMA_API_KEY
+npx tsx scripts/seed.ts
+
+npm run dev
 ```
 
-## Directory Structure
+Expected signals:
+- Chroma container starts and stays healthy
+- `npx tsx scripts/test-infra.ts` reports Chroma as `UP`
+- `GET /api/health` returns `200` and `services.chromadb.status = "up"`
 
-```
-ai-bureaucracy/
-├── app/api/
-│   ├── ingest/         # ChromaDB ingestion API
-│   ├── procedures/     # List procedures API
-│   ├── health/        # Health check API
-│   └── uploadthing/   # File upload handling
-├── lib/
-│   ├── types.ts       # Shared Zod schemas
-│   ├── rag.ts        # ChromaDB RAG utilities
-│   ├── embed.ts      # OpenAI embedding functions
-│   ├── extract.ts   # PDF/DOCX text extraction
-│   ├── chunk.ts      # Text chunking utility
-│   ├── prompts.ts    # System prompt builders
-│   ├── cached-answers.ts  # Demo mode fallback
-│   ├── logger.ts     # Logging utility
-│   └── validation.ts # Input validation
-├── scripts/
-│   ├── seed.ts       # Bulk data ingestion
-│   ├── setup.ts      # Project setup script
-│   └── test-infra.ts # Infrastructure tests
-├── data/
-│   └── seed/          # Procedure JSON files (8 files)
-└── docker-compose.yml # ChromaDB container
+## Railway ChromaDB
+
+```bash
+set CHROMA_URL=https://your-chroma.railway.app
+npx tsx scripts/test-infra.ts
 ```
 
-## API Endpoints
+## Key API Endpoints
 
-### Health Check
+### Health
 ```bash
 GET /api/health
-# Returns: { status, services: { chromadb: { status, stats } } }
 ```
 
-### Ingest Document
+### Ingest
 ```bash
 POST /api/ingest
 Content-Type: application/json
 
 {
-  "text_override": "Procedure text to ingest",
+  "text_override": "Long enough text to create chunks",
   // OR
   "file_url": "https://example.com/doc.pdf",
   "metadata": {
     "country": "DE",
     "category": "residence_permit",
     "title": "EU Blue Card",
-    "source_url": "https://..."
+    "source_url": "https://...",
+    "procedure_id": "de-residence-eu-blue-card"
   }
 }
 ```
 
-### Delete Procedure
-```bash
-DELETE /api/ingest?procedure_id=de-residence_permit-eu-blue-card
-```
+Notes:
+- Ingest accepts both `text_override` and `file_url`.
+- Upload-triggered ingest includes a short wait before fetching the file URL to reduce race failures.
+- Custom `metadata.procedure_id` creates deterministic chunk IDs (`{procedure_id}-chunk-{n}`), improving idempotency for repeat uploads.
 
 ### List Procedures
 ```bash
 GET /api/procedures?country=DE&category=residence_permit
 ```
 
-## Seed Data
-
-Currently includes 8 procedures covering:
-- DE: EU Blue Card, Official Letter Response
-- NL: Partner Visa
-- PT: D7 Retirement Visa
-- GE: Digital Nomad Visa
-- ES: Family Reunification
-- PL: Ukrainian Long-term Status
-
-To add more, create JSON files in `data/seed/` following the schema.
+### Delete Procedure
+```bash
+DELETE /api/ingest?procedure_id=de-residence-eu-blue-card
+```
 
 ## Environment Variables
 
-### Local Development
+### Minimum
 ```bash
 CHROMA_URL=http://localhost:8000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### Railway Deployment
+### Required for full functionality
 ```bash
-CHROMA_URL=https://your-chroma.railway.app
-```
-
-### Required for Full Functionality
-```bash
-# API Keys (server-side)
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 UPLOADTHING_SECRET=sk_live_...
-
-# Public (client-side)
 NEXT_PUBLIC_UPLOADTHING_APP_ID=...
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_DEMO_MODE=true
 ```
 
-## Running Tests
-
+### Optional embedding provider override
 ```bash
-# Test all infrastructure components
-npx tsx scripts/test-infra.ts
+SIRMA_API_KEY=...
+SIRMA_AI_DOMAIN=...
+SIRMA_BASE_URL=...
+SIRMA_EMBEDDING_MODEL=...
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
-## Deployment Guides
+## Dev 3 Smoke Checklist
 
-- [Railway Deployment Guide](./RAILWAY-DEPLOYMENT.md)
-- [Local Docker Setup](#local-development)
+Run before opening or merging a Dev 3 PR:
+- `npm run build` succeeds
+- `docker-compose up -d chromadb` succeeds
+- `GET /api/health` returns `200` and Chroma `up`
+- `POST /api/ingest` with `text_override` returns success for realistic-length text
+- `POST /api/ingest` with `file_url` returns success when embedding key is configured
+- `GET /api/procedures` includes ingested `procedure_id`
+- `DELETE /api/ingest?procedure_id=...` removes the procedure chunks
+- `npx tsx scripts/test-infra.ts` passes (provider checks require valid API keys)
 
 ## Troubleshooting
 
-### ChromaDB Connection Issues
+### ChromaDB
 ```bash
-# Check if container is running
-docker ps | grep chromadb
-
-# View logs
+docker ps
 docker-compose logs chromadb
-
-# Restart
 docker-compose restart chromadb
 ```
 
-### Embedding Failures
-- Check OpenAI API key is valid
-- Verify API quota is not exceeded
-- Check network connectivity
+### Embeddings
+- Ensure `OPENAI_API_KEY` or `SIRMA_API_KEY` is configured
+- Verify provider quota and rate limits
+- Check network access from the Next.js runtime
 
-### Seed Data Issues
-- Ensure JSON files in `data/seed/` are valid JSON
-- Procedure IDs must be unique
-- Country codes must match the COUNTRY_NAMES enum in `lib/types.ts`
+### Seed data
+- Ensure JSON in `data/seed/` is valid
+- Ensure `procedure_id` values are unique
+- Use valid country/category metadata values
 
-## Current Status
+## Related Docs
 
-| Component | Status |
-|-----------|--------|
-| ChromaDB Config | ✅ Supports local + Railway (v2 API) |
-| ChromaDB v2 API | ✅ Fixed IncludeEnum, heartbeat, collection methods |
-| Document Extraction | ✅ PDF/DOCX |
-| Embeddings | ✅ OpenAI text-embedding-3-small |
-| API Routes | ✅ ingest, procedures, health |
-| Seed Data | ✅ 8 procedures |
-| Validation | ✅ lib/validation.ts |
-| Logging | ✅ lib/logger.ts |
-| Railway Support | ✅ See RAILWAY-DEPLOYMENT.md |
-| Build | ✅ Production build passes |
-
-## Known Issues (Non-Blocking)
-
-| Issue | Status | Notes |
-|-------|--------|-------|
-| `npm run build` TypeScript errors | ⚠️ Skipped | Build succeeds, type validation skipped |
-| Animation variants (components/) | ⚠️ Not Dev3 | Framer Motion types, outside Dev3 scope |
-| Scripts module resolution | ⚠️ Not blocking | Run with `npx tsx` for proper module handling |
+- [Railway Deployment Guide](./RAILWAY-DEPLOYMENT.md)

@@ -1,10 +1,11 @@
 import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { getModelId } from '@/lib/ai/providers';
 import {
   SupportedCountryInputSchema,
   normalizeDocumentType,
 } from '@/lib/ai/request-schemas';
+import { findCachedDocumentRisk, isDemoMode } from '@/lib/cached-answers';
 import { extractTextFromUrl } from '@/lib/extract';
 import { buildAnalyzeSystemPrompt } from '@/lib/prompts';
 import { DocumentRiskSchema, COUNTRY_NAMES } from '@/lib/types';
@@ -28,8 +29,11 @@ const analyzeRequestSchema = z
   });
 
 export async function POST(req: Request) {
+  let body: unknown;
+
   try {
-    const payload = analyzeRequestSchema.safeParse(await req.json());
+    body = await req.json();
+    const payload = analyzeRequestSchema.safeParse(body);
     if (!payload.success) {
       return Response.json(
         {
@@ -41,6 +45,11 @@ export async function POST(req: Request) {
     }
 
     const { text, file_url, document_type, country } = payload.data;
+    const cached = findCachedDocumentRisk(document_type, country);
+
+    if (isDemoMode() && cached) {
+      return Response.json(cached);
+    }
 
     let documentText = text;
     if (!documentText && file_url) {
@@ -55,7 +64,7 @@ export async function POST(req: Request) {
     }
 
     const { object } = await generateObject({
-      model: getModelId(),
+      model: openai('gpt-4o') as never,
       schema: DocumentRiskSchema,
       system: buildAnalyzeSystemPrompt(country, document_type),
       prompt: `Document type: ${document_type}
@@ -68,6 +77,16 @@ ${documentText.slice(0, 10000)}`,
     return Response.json(object);
   } catch (error) {
     console.error('Analyze route error:', error);
+    const fallbackPayload = analyzeRequestSchema.safeParse(body);
+    if (fallbackPayload.success) {
+      const cached = findCachedDocumentRisk(
+        fallbackPayload.data.document_type,
+        fallbackPayload.data.country,
+      );
+      if (cached) {
+        return Response.json(cached);
+      }
+    }
     return Response.json(
       { error: 'Failed to analyze document' },
       { status: 500 },

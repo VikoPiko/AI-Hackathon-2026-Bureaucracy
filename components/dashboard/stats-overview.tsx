@@ -59,7 +59,7 @@ const containerVariants = {
       staggerChildren: 0.1,
     },
   },
-}
+} as const
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -68,7 +68,7 @@ const itemVariants = {
     y: 0,
     transition: { duration: 0.4, ease: [0.25, 0.4, 0.25, 1] },
   },
-}
+} as const
 
 function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null)

@@ -45,7 +45,7 @@ const containerVariants = {
       staggerChildren: 0.08,
     },
   },
-}
+} as const
 
 const itemVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -57,7 +57,7 @@ const itemVariants = {
       ease: [0.25, 0.4, 0.25, 1] 
     },
   },
-}
+} as const
 
 export function Features() {
   const ref = useRef(null)

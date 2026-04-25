@@ -12,6 +12,9 @@
 import { checkChromaHealth, getCollectionStats } from '../lib/rag';
 import { embedText, checkOpenAIHealth } from '../lib/embed';
 import { extractTextFromUrl } from '../lib/extract';
+import { loadLocalEnv } from './load-env';
+
+loadLocalEnv();
 
 const tests: Array<{ name: string; fn: () => Promise<boolean> }> = [];
 
