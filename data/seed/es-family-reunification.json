@@ -2,6 +2,39 @@
   "procedure_id": "es-family-reunification",
   "country": "ES",
   "category": "family",
+<<<<<<< HEAD
+  "title": "Family Reunification in Spain (Non-EU Family Members)",
+  "title_local": "Reagrupación Familiar en España",
+  "summary": "Spanish residents can bring their family members to Spain through the family reunification process. The sponsor must have held a residence permit for at least 1 year and prove sufficient financial means. Direct family members (spouse, children, parents) qualify.",
+  "steps": [
+    "Ensure you have held your residence permit for at least 1 year",
+    "Gather required documents from your home country (apostilled)",
+    "Apply at the Oficina de Extranjería in your province",
+    "Submit application within 60 days of having the right to reunite",
+    "Wait for authorization (typically 3-4 months)",
+    "Once approved, family member applies for residence visa at Spanish consulate",
+    "Family member travels to Spain and registers (empadronamiento)",
+    "Apply for TIE (Tarjeta de Identidad de Extranjero) within 30 days"
+  ],
+  "documents": [
+    "Valid passport or residence card",
+    "Application form (EX-02)",
+    "Family member's passport",
+    "Birth or marriage certificate (apostilled)",
+    "Proof of sufficient financial means (minimum €900/month)",
+    "Proof of accommodation (contrato de alquiler or escritura)",
+    "Criminal record certificate (from home country, apostilled)",
+    "Passport photos"
+  ],
+  "office": "Oficina de Extranjería / Immigration Office in your province",
+  "fee": "€16.77 visa fee + €18.72 TIE card fee",
+  "processing_days": 90,
+  "notes": "Financial requirements: minimum €900/month for the sponsor, plus €300/month for each family member. Employment contract or income tax returns (IRPF) serve as proof. Children under 18 and dependent parents have priority. The reunited family member can work once they have their TIE.",
+  "source_url": "https://extranjeria.es/familiares-reagrupacion",
+  "difficulty": "complex",
+  "language": "en",
+  "last_verified": "2024-03"
+=======
   "title": "Family Reunification for Dependent Relatives - Spain",
   "title_local": "Reagrupacion Familiar - Residencia por reagrupacion familiar",
   "summary": "Legal residents in Spain may bring eligible family members, including dependent parents under conditions, through the family reunification process.",
@@ -34,4 +67,5 @@
   "difficulty": "complex",
   "language": "en",
   "last_verified": "2025-01"
+>>>>>>> 5dadaf69ccce5226d7f9711b608c03a8fcb97844
 }
