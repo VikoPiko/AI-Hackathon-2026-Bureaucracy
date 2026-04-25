@@ -1,12 +1,15 @@
 import OpenAI from 'openai';
 
-<<<<<<< HEAD
 const EMBEDDING_MODEL =
   process.env.SIRMA_EMBEDDING_MODEL ||
   process.env.OPENAI_EMBEDDING_MODEL ||
   'text-embedding-3-small';
 
+let embeddingClient: OpenAI | null = null;
+
 function getEmbeddingClient(): OpenAI {
+  if (embeddingClient) return embeddingClient;
+
   const sirmaApiKey = process.env.SIRMA_API_KEY;
   const apiKey = sirmaApiKey || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -27,66 +30,36 @@ function getEmbeddingClient(): OpenAI {
     defaultHeaders['api-key'] = sirmaApiKey;
   }
 
-  return new OpenAI({
+  embeddingClient = new OpenAI({
     apiKey,
     baseURL: baseURL || undefined,
     defaultHeaders,
   });
+
+  return embeddingClient;
 }
 
 /**
- * Generate embedding for a single text using OpenAI's text-embedding-3-small model
+ * Generate embedding for a single text with retry logic.
  */
-export async function embedText(text: string): Promise<number[]> {
-  const client = getEmbeddingClient();
-  const res = await client.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: text.slice(0, 8000),
-  });
-  return res.data[0].embedding;
-=======
-// Singleton for OpenAI client
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openaiClient;
->>>>>>> 7d6186e3b5eee7d8cd1720ec2f6ff6e1b9a03e3c
-}
-
-/**
- * Generate embedding for a single text with retry logic
- */
-<<<<<<< HEAD
-export async function embedBatch(texts: string[]): Promise<number[][]> {
-  const client = getEmbeddingClient();
-  const res = await client.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: texts.map(t => t.slice(0, 8000)),
-  });
-  return res.data.map(d => d.embedding);
-=======
 export async function embedText(
-  text: string, 
-  retries = 3, 
+  text: string,
+  retries = 3,
   delay = 1000
 ): Promise<number[]> {
-  const openai = getOpenAIClient();
+  const client = getEmbeddingClient();
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
+      const res = await client.embeddings.create({
+        model: EMBEDDING_MODEL,
         input: text.slice(0, 8000),
       });
       return res.data[0].embedding;
     } catch (err) {
       lastError = err as Error;
       if (attempt < retries) {
-        // Exponential backoff
         await new Promise(r => setTimeout(r, delay * Math.pow(2, attempt)));
       }
     }
@@ -96,20 +69,20 @@ export async function embedText(
 }
 
 /**
- * Generate embeddings for multiple texts in batch with retry logic
+ * Generate embeddings for multiple texts in batch with retry logic.
  */
 export async function embedBatch(
-  texts: string[], 
-  retries = 3, 
+  texts: string[],
+  retries = 3,
   delay = 1000
 ): Promise<number[][]> {
-  const openai = getOpenAIClient();
+  const client = getEmbeddingClient();
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
+      const res = await client.embeddings.create({
+        model: EMBEDDING_MODEL,
         input: texts.map(t => t.slice(0, 8000)),
       });
       return res.data.map(d => d.embedding);
@@ -125,15 +98,16 @@ export async function embedBatch(
 }
 
 /**
- * Check if OpenAI API is reachable
+ * Check if the configured embedding API is reachable.
  */
-export async function checkOpenAIHealth(): Promise<boolean> {
+export async function checkEmbeddingHealth(): Promise<boolean> {
   try {
-    const openai = getOpenAIClient();
-    await openai.models.list();
+    await embedText('healthcheck', 0);
     return true;
   } catch {
     return false;
   }
->>>>>>> 7d6186e3b5eee7d8cd1720ec2f6ff6e1b9a03e3c
 }
+
+// Backward-compatible alias for older imports.
+export const checkOpenAIHealth = checkEmbeddingHealth;
