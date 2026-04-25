@@ -1,9 +1,7 @@
-import { ChromaClient } from 'chromadb';
+import { getChromaClient } from '@/lib/rag';
 import { extractTextFromUrl } from '@/lib/extract';
 import { chunkText } from '@/lib/chunk';
 import { embedBatch } from '@/lib/embed';
-
-const chroma = new ChromaClient({ path: process.env.CHROMA_URL || 'http://localhost:8000' });
 
 /**
  * POST /api/ingest
@@ -24,8 +22,12 @@ export async function POST(req: Request) {
   const chunks = chunkText(text);
   if (chunks.length === 0) return Response.json({ error: 'No content extracted' }, { status: 400 });
 
+  // Generate embeddings with retry logic (in embed.ts)
   const embeddings = await embedBatch(chunks);
 
+  // Use singleton ChromaDB client from rag.ts
+  const chroma = getChromaClient();
+  
   const collection = await chroma.getOrCreateCollection({
     name: 'procedures',
     metadata: { 'hnsw:space': 'cosine' },
@@ -46,5 +48,35 @@ export async function POST(req: Request) {
 
   await collection.upsert({ ids, documents: chunks, embeddings, metadatas });
 
-  return Response.json({ chunks_created: chunks.length, procedure_id: pid });
+  return Response.json({ 
+    chunks_created: chunks.length, 
+    procedure_id: pid,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+/**
+ * DELETE /api/ingest
+ * Delete a procedure from ChromaDB by procedure_id
+ */
+export async function DELETE(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const procedureId = searchParams.get('procedure_id');
+
+  if (!procedureId) {
+    return Response.json({ error: 'procedure_id is required' }, { status: 400 });
+  }
+
+  const chroma = getChromaClient();
+  const collection = await chroma.getOrCreateCollection({
+    name: 'procedures',
+    metadata: { 'hnsw:space': 'cosine' },
+  });
+
+  // Delete all chunks belonging to this procedure
+  await collection.delete({
+    where: { procedure_id: procedureId },
+  });
+
+  return Response.json({ deleted: procedureId });
 }
