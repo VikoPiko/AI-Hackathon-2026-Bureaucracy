@@ -26,12 +26,12 @@ export interface RetrievedContext {
 const PROCEDURES_COLLECTION = "procedures";
 
 const QUERY_INCLUDE = [
-  IncludeEnum.Documents,
-  IncludeEnum.Metadatas,
-  IncludeEnum.Distances,
+  IncludeEnum.documents,
+  IncludeEnum.metadatas,
+  IncludeEnum.distances,
 ] as const;
 
-export const GET_INCLUDE = [IncludeEnum.Metadatas] as const;
+export const GET_INCLUDE = [IncludeEnum.metadatas] as const;
 
 /**
  * Get or create the ChromaDB singleton instance
@@ -83,10 +83,7 @@ function buildProcedureWhere(country: string, category?: string): Where {
   }
 
   return {
-    $and: [
-      { country: { $eq: country } },
-      { category: { $eq: category } },
-    ],
+    $and: [{ country: { $eq: country } }, { category: { $eq: category } }],
   };
 }
 
@@ -109,7 +106,8 @@ export async function retrieveContext(
     include: [...QUERY_INCLUDE],
   });
 
-  const metadata = (results.metadatas?.[0] || []) as (ProcedureChunkMetadata | null)[];
+  const metadata = (results.metadatas?.[0] ||
+    []) as (ProcedureChunkMetadata | null)[];
 
   return {
     chunks: ((results.documents?.[0] || []).filter(Boolean) as string[]) || [],
