@@ -26,12 +26,12 @@ export interface RetrievedContext {
 const PROCEDURES_COLLECTION = "procedures";
 
 const QUERY_INCLUDE = [
-  IncludeEnum.documents,
-  IncludeEnum.metadatas,
-  IncludeEnum.distances,
+  IncludeEnum.Documents,
+  IncludeEnum.Metadatas,
+  IncludeEnum.Distances,
 ] as const;
 
-export const GET_INCLUDE = [IncludeEnum.metadatas] as const;
+export const GET_INCLUDE = [IncludeEnum.Metadatas] as const;
 
 /**
  * Get or create the ChromaDB singleton instance

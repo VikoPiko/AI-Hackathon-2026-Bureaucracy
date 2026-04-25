@@ -31,37 +31,9 @@ import {
   type LucideIcon
 } from "lucide-react"
 import Link from "next/link"
+import { useUserProcesses } from "@/hooks/use-user-data"
 
 type ProcessType = "residency" | "business" | "tax" | "education" | "driving" | "healthcare"
-
-interface ProcessStep {
-  id: string
-  name: string
-  status: "completed" | "current" | "upcoming"
-  description?: string
-  date?: string
-}
-
-interface ProcessDocument {
-  id: string
-  name: string
-  status: "submitted" | "pending" | "missing"
-}
-
-interface Process {
-  id: string
-  name: string
-  type: ProcessType
-  status: "in-progress" | "waiting" | "completed"
-  progress: number
-  nextStep: string
-  dueDate?: string
-  location?: string
-  steps: ProcessStep[]
-  documents: ProcessDocument[]
-  estimatedCompletion?: string
-  notes?: string
-}
 
 const processTypeConfig: Record<ProcessType, { icon: LucideIcon; color: string; bg: string }> = {
   residency: { icon: Home, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30" },
@@ -71,81 +43,6 @@ const processTypeConfig: Record<ProcessType, { icon: LucideIcon; color: string; 
   driving: { icon: Car, color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30" },
   healthcare: { icon: HeartPulse, color: "text-cyan-600", bg: "bg-cyan-100 dark:bg-cyan-900/30" },
 }
-
-const processes: Process[] = [
-  {
-    id: "1",
-    name: "Residence Permit Application",
-    type: "residency",
-    status: "in-progress",
-    progress: 65,
-    nextStep: "Submit biometric data",
-    dueDate: "Dec 15, 2024",
-    location: "Migration Office",
-    estimatedCompletion: "Jan 10, 2025",
-    notes: "Appointment confirmed for biometric data submission.",
-    steps: [
-      { id: "s1", name: "Initial Application", status: "completed", description: "Submit online application form", date: "Nov 1, 2024" },
-      { id: "s2", name: "Document Submission", status: "completed", description: "Upload required documents", date: "Nov 8, 2024" },
-      { id: "s3", name: "Fee Payment", status: "completed", description: "Pay application fee", date: "Nov 10, 2024" },
-      { id: "s4", name: "Biometric Data", status: "current", description: "Visit office for fingerprints and photo", date: "Dec 15, 2024" },
-      { id: "s5", name: "Final Review", status: "upcoming", description: "Wait for application review" },
-      { id: "s6", name: "Permit Issuance", status: "upcoming", description: "Collect residence permit card" },
-    ],
-    documents: [
-      { id: "d1", name: "Passport Copy", status: "submitted" },
-      { id: "d2", name: "Proof of Address", status: "submitted" },
-      { id: "d3", name: "Employment Contract", status: "submitted" },
-      { id: "d4", name: "Health Insurance", status: "pending" },
-      { id: "d5", name: "Bank Statement", status: "submitted" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Business Registration",
-    type: "business",
-    status: "waiting",
-    progress: 40,
-    nextStep: "Waiting for document approval",
-    dueDate: "Dec 20, 2024",
-    estimatedCompletion: "Jan 5, 2025",
-    notes: "Documents under review by the registry office.",
-    steps: [
-      { id: "s1", name: "Name Reservation", status: "completed", description: "Reserve company name", date: "Nov 15, 2024" },
-      { id: "s2", name: "Document Preparation", status: "completed", description: "Prepare founding documents", date: "Nov 20, 2024" },
-      { id: "s3", name: "Document Submission", status: "current", description: "Submit to registry office" },
-      { id: "s4", name: "Registry Approval", status: "upcoming", description: "Wait for official approval" },
-      { id: "s5", name: "Tax Registration", status: "upcoming", description: "Register with tax authority" },
-    ],
-    documents: [
-      { id: "d1", name: "Articles of Association", status: "submitted" },
-      { id: "d2", name: "Founder ID Copies", status: "submitted" },
-      { id: "d3", name: "Office Lease Agreement", status: "missing" },
-      { id: "d4", name: "Bank Account Proof", status: "pending" },
-    ],
-  },
-  {
-    id: "3",
-    name: "Tax ID Application",
-    type: "tax",
-    status: "in-progress",
-    progress: 85,
-    nextStep: "Collect final document",
-    location: "Tax Office",
-    estimatedCompletion: "Dec 10, 2024",
-    steps: [
-      { id: "s1", name: "Application Form", status: "completed", description: "Fill out tax registration form", date: "Nov 25, 2024" },
-      { id: "s2", name: "Identity Verification", status: "completed", description: "Verify identity at office", date: "Nov 28, 2024" },
-      { id: "s3", name: "Processing", status: "completed", description: "Application processing", date: "Dec 1, 2024" },
-      { id: "s4", name: "Document Collection", status: "current", description: "Collect Tax ID certificate" },
-    ],
-    documents: [
-      { id: "d1", name: "ID Document", status: "submitted" },
-      { id: "d2", name: "Proof of Address", status: "submitted" },
-      { id: "d3", name: "Application Form", status: "submitted" },
-    ],
-  },
-]
 
 const statusConfig = {
   "in-progress": { label: "In Progress", className: "bg-primary/10 text-primary border-primary/20" },
@@ -160,7 +57,23 @@ const documentStatusConfig = {
 }
 
 export function OngoingProcesses() {
-  const [selectedProcess, setSelectedProcess] = useState<Process | null>(null)
+  const { processes, isLoaded } = useUserProcesses()
+  const [selectedProcess, setSelectedProcess] = useState<(typeof processes)[0] | null>(null)
+
+  if (!isLoaded) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Ongoing Processes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
+          ))}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <>

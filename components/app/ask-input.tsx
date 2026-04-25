@@ -5,25 +5,34 @@ import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Send, Loader2, Upload, X, FileText, Image as ImageIcon } from "lucide-react"
+import { Send, Loader2, Upload, X, FileText, Image as ImageIcon, Globe } from "lucide-react"
+import { CountrySelector, COUNTRIES } from "./country-selector"
 
 interface AskInputProps {
-  onSubmit: (question: string, file?: File) => void
+  onSubmit: (question: string, file?: File, country?: string) => void
   isLoading?: boolean
   placeholder?: string
   initialValue?: string
+  initialCountry?: string
 }
 
-export function AskInput({ onSubmit, isLoading, placeholder, initialValue }: AskInputProps) {
+export function AskInput({ 
+  onSubmit, 
+  isLoading, 
+  placeholder, 
+  initialValue,
+  initialCountry = "BG"
+}: AskInputProps) {
   const [question, setQuestion] = useState(initialValue ?? "")
   const [file, setFile] = useState<File | null>(null)
+  const [country, setCountry] = useState(initialCountry)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (question.trim() && !isLoading) {
-      onSubmit(question.trim(), file || undefined)
+      onSubmit(question.trim(), file || undefined, country)
     }
   }
 
@@ -71,11 +80,28 @@ export function AskInput({ onSubmit, isLoading, placeholder, initialValue }: Ask
       onDrop={handleDrop}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Country Selector Row */}
+        <div className="flex items-center gap-3 pb-2 border-b">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Globe className="h-4 w-4" />
+            <span>Country:</span>
+          </div>
+          <CountrySelector 
+            value={country} 
+            onChange={setCountry} 
+            disabled={isLoading}
+          />
+          <span className="text-xs text-muted-foreground ml-2">
+            Select the country for this procedure
+          </span>
+        </div>
+
+        {/* Question Input */}
         <div className="relative">
           <Textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder={placeholder || "Ask about any bureaucratic procedure... e.g., 'How do I apply for a residence permit in Bulgaria?'"}
+            placeholder={placeholder || `Ask about bureaucratic procedures in ${COUNTRIES.find(c => c.code === country)?.name || 'your selected country'}...`}
             className="min-h-[120px] resize-none text-base pr-12"
             disabled={isLoading}
             onKeyDown={(e) => {
@@ -99,12 +125,14 @@ export function AskInput({ onSubmit, isLoading, placeholder, initialValue }: Ask
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 {getFileIcon(file)}
               </div>
+
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{file.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
               </div>
+
               <Button
                 type="button"
                 variant="ghost"
@@ -119,6 +147,7 @@ export function AskInput({ onSubmit, isLoading, placeholder, initialValue }: Ask
           )}
         </AnimatePresence>
 
+        {/* Actions Row */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <input
@@ -140,6 +169,7 @@ export function AskInput({ onSubmit, isLoading, placeholder, initialValue }: Ask
               <Upload className="h-4 w-4" />
               Attach Document
             </Button>
+
             <span className="text-xs text-muted-foreground hidden sm:inline">
               PDF or images up to 10MB
             </span>

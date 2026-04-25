@@ -1,21 +1,20 @@
-import { streamObject } from 'ai';
 import { z } from 'zod';
-import { getModelId } from '@/lib/ai/providers';
+import { runSirmaAgent } from '@/lib/sirma-agent';
+import { getSirmaConfig, isSirmaConfigured } from '@/lib/sirma-config';
 import {
   SupportedCountryInputSchema,
   SupportedLanguageInputSchema,
 } from '@/lib/ai/request-schemas';
-import { t } from '@/lib/i18n';
-import { buildChatSystemPrompt } from '@/lib/prompts';
-import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
-import { ProcedureAnswerSchema, COUNTRY_NAMES } from '@/lib/types';
+import { COUNTRY_NAMES } from '@/lib/types';
 
-export const maxDuration = 10;
+export const maxDuration = 30;
 
 const chatRequestSchema = z.object({
   question: z.string().trim().min(1).max(2000),
   language: SupportedLanguageInputSchema.default('en'),
   country: SupportedCountryInputSchema.default('DE'),
+  sessionId: z.string().optional(),
+  userId: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -27,48 +26,72 @@ export async function POST(req: Request) {
           error: 'Invalid request payload',
           details: payload.error.flatten(),
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const { question, language, country } = payload.data;
-    const { chunks, sources, distances } = await retrieveContext(
-      question,
-      country,
-    );
-    const confidence = getConfidence(distances);
+    const { question, language, country, sessionId, userId } = payload.data;
 
-    if (confidence < 0.3 || chunks.length === 0) {
-      return Response.json({
-        summary: t(language, 'chatNoSpecificInfo', {
-          country: COUNTRY_NAMES[country] || country,
-        }),
-        steps: [],
-        documents: [],
-        office: null,
-        fee_info: null,
-        source_url: null,
-        confidence,
-        answerable: false,
-      });
+    // Check if Sirma is configured
+    if (!isSirmaConfigured()) {
+      return Response.json(
+        {
+          error: 'Sirma not configured',
+          details: 'SIRMA_AGENT_ID is missing. Please configure your Sirma agent in .env.local',
+        },
+        { status: 500 }
+      );
     }
 
-    const result = await streamObject({
-      model: getModelId(),
-      schema: ProcedureAnswerSchema,
-      system: buildChatSystemPrompt(language, country),
-      prompt: `Question: ${question}
+    const config = getSirmaConfig();
 
-Context from official ${COUNTRY_NAMES[country] || country} sources:
-${buildContext(chunks, sources)}`,
-    });
+    // Build context message with user preferences
+    const enhancedMessage = `[${language.toUpperCase()}] Country: ${country} (${COUNTRY_NAMES[country] || country})
 
-    return result.toTextStreamResponse();
+User question: ${question}
+
+Note: Respond in ${language} language and reference ${COUNTRY_NAMES[country] || country} procedures when relevant.`;
+
+    try {
+      // Run Sirma agent (without user_id for simplicity - Sirma creates temp user)
+      const result = await runSirmaAgent(config.agentId, enhancedMessage, {
+        sessionId: sessionId,
+      });
+
+      // Return as plain text stream
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode(result.content));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Transfer-Encoding': 'chunked',
+          'X-Sirma-Agent': config.agentId,
+          'X-Sirma-Run-Id': result.runId,
+        },
+      });
+
+    } catch (error) {
+      console.error('Sirma agent error:', error);
+      return Response.json(
+        {
+          error: 'Failed to run Sirma agent',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+        { status: 500 }
+      );
+    }
+
   } catch (error) {
     console.error('Chat route error:', error);
     return Response.json(
-      { error: 'Failed to generate procedure guidance' },
-      { status: 500 },
+      { error: 'Failed to process chat request' },
+      { status: 500 }
     );
   }
 }

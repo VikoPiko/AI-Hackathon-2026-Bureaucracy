@@ -1,14 +1,14 @@
-import { generateObject } from 'ai';
 import { z } from 'zod';
-import { getModelId } from '@/lib/ai/providers';
+import { runSirmaAgent } from '@/lib/sirma-agent';
+import { getSirmaConfig, isSirmaConfigured } from '@/lib/sirma-config';
+import { extractTextFromUrl } from '@/lib/extract';
 import {
   SupportedCountryInputSchema,
   SupportedLanguageInputSchema,
   normalizeDocumentType,
 } from '@/lib/ai/request-schemas';
-import { extractTextFromUrl } from '@/lib/extract';
-import { buildAnalyzeSystemPrompt } from '@/lib/prompts';
-import { DocumentRiskSchema, COUNTRY_NAMES } from '@/lib/types';
+import { COUNTRY_NAMES } from '@/lib/types';
+import { scrapeGovernmentInfo, formatGovernmentFallback, extractGovernmentOffice } from '@/lib/government-sources';
 
 const analyzeRequestSchema = z
   .object({
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
           error: 'Invalid request payload',
           details: payload.error.flatten(),
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -52,27 +52,134 @@ export async function POST(req: Request) {
     if (!documentText) {
       return Response.json(
         { error: 'No document text provided' },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const { object } = await generateObject({
-      model: getModelId(),
-      schema: DocumentRiskSchema,
-      system: buildAnalyzeSystemPrompt(country, document_type, language),
-      prompt: `Document type: ${document_type}
-Country jurisdiction: ${COUNTRY_NAMES[country] || country}
+    if (!isSirmaConfigured()) {
+      return Response.json(
+        {
+          error: 'Sirma not configured',
+          details: 'SIRMA_AGENT_ID is missing',
+        },
+        { status: 500 }
+      );
+    }
 
-Document text:
-${documentText.slice(0, 10000)}`,
-    });
+    const config = getSirmaConfig();
+    const countryName = COUNTRY_NAMES[country] || country;
 
-    return Response.json(object);
+    const message = `[${language.toUpperCase()}] Analyze this ${document_type} document for ${countryName} jurisdiction.
+
+Please analyze the following document and provide a structured risk analysis:
+
+Document Type: ${document_type}
+Country: ${countryName}
+Language: ${language}
+
+Document Content:
+${documentText.slice(0, 15000)}
+
+IMPORTANT: Format your response as a valid JSON object with EXACTLY this structure:
+{
+  "risk_level": "low" | "medium" | "high",
+  "summary": "Brief overview of the document risks (2-3 sentences)",
+  "risks": [
+    {
+      "clause": "The problematic clause text",
+      "risk": "Description of the risk",
+      "severity": "low" | "medium" | "high",
+      "recommendation": "What to do about this"
+    }
+  ],
+  "missing_clauses": ["Standard clauses that should be present"],
+  "positive_points": ["Well-drafted or beneficial clauses"],
+  "verdict": "Final recommendation in one sentence"
+}
+
+Return ONLY the JSON, no explanations before or after.`;
+
+    try {
+      const result = await runSirmaAgent(config.agentId, message);
+
+      // Parse JSON response from agent
+      let parsedResponse;
+      try {
+        // Find JSON in the response (might be wrapped in markdown code blocks)
+        let jsonStr = result.content;
+        
+        // Remove markdown code block markers if present
+        jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+        jsonStr = jsonStr.replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+        
+        // Try to find JSON object in the text
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0];
+        }
+        
+        parsedResponse = JSON.parse(jsonStr);
+        
+        // Validate required fields exist
+        if (!parsedResponse.risk_level) {
+          throw new Error('Missing risk_level');
+        }
+      } catch {
+        // If parsing fails, return the raw content with a fallback structure
+        parsedResponse = {
+          risk_level: 'unknown',
+          summary: result.content.slice(0, 500),
+          risks: [],
+          missing_clauses: [],
+          positive_points: [],
+          verdict: 'Please review the full analysis below',
+          _rawContent: result.content, // Include raw content for display
+        };
+      }
+
+      return Response.json(parsedResponse);
+    } catch (error) {
+      console.error('Sirma analyze error:', error);
+      
+      // Try web scraping fallback for government sources
+      try {
+        const procedure = `document analysis ${document_type} ${countryName}`;
+        const { sources, scrapedContent, success } = await scrapeGovernmentInfo(
+          country,
+          procedure,
+          { maxSources: 2 }
+        );
+        
+        if (success && scrapedContent) {
+          const fallbackContent = formatGovernmentFallback(procedure, scrapedContent, sources);
+          return Response.json({
+            risk_level: 'unknown',
+            summary: `Information retrieved from official government sources for ${document_type} analysis.`,
+            risks: [],
+            missing_clauses: [],
+            positive_points: [],
+            verdict: 'Please review the official information below.',
+            _rawContent: fallbackContent,
+            _fallbackSource: 'government_scrape',
+          });
+        }
+      } catch (scrapeError) {
+        console.warn('Government scrape fallback also failed:', scrapeError);
+      }
+      
+      return Response.json(
+        {
+          error: 'Failed to analyze document',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Analyze route error:', error);
     return Response.json(
       { error: 'Failed to analyze document' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
