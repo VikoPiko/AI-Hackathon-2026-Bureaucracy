@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { usePathname } from "next/navigation"
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "motion/react"
-import { X, ChevronRight, HelpCircle } from "lucide-react"
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, type PanInfo } from "motion/react"
+import { X, ChevronRight, HelpCircle, RotateCcw, Grip } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n-context"
 
 const SESSION_HIDE_KEY = "formwise-clippy-hidden-session"
+const POSITION_KEY = "formwise-clippy-position"
 
 // Corner positions for Clippy to jump to
 const corners = [
@@ -23,6 +24,23 @@ interface FormWiseClippyProps {
   initialDelay?: number
 }
 
+type ClippyPosition = {
+  x: number
+  y: number
+}
+
+function clampPosition(position: ClippyPosition): ClippyPosition {
+  if (typeof window === "undefined") return position
+
+  const maxX = Math.max(12, window.innerWidth - 92)
+  const maxY = Math.max(12, window.innerHeight - 110)
+
+  return {
+    x: Math.min(Math.max(position.x, 12), maxX),
+    y: Math.min(Math.max(position.y, 12), maxY),
+  }
+}
+
 export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClippyProps) {
   const pathname = usePathname()
   const { translate: tr } = useI18n()
@@ -34,8 +52,11 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   const [isJumping, setIsJumping] = useState(false)
   const [isBouncing, setIsBouncing] = useState(false)
   const [eyebrowRaise, setEyebrowRaise] = useState(false)
+  const [savedPosition, setSavedPosition] = useState<ClippyPosition | null>(null)
+  const [hasUserPosition, setHasUserPosition] = useState(false)
   const jumpTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const bounceIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const clippyRef = useRef<HTMLDivElement | null>(null)
   
   const routeKey = pathname?.startsWith("/ask")
     ? "ask"
@@ -63,6 +84,17 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
     if (hidden) {
       setIsHiddenForSession(true)
       return
+    }
+
+    const storedPosition = localStorage.getItem(POSITION_KEY)
+    if (storedPosition) {
+      try {
+        const parsed = JSON.parse(storedPosition) as ClippyPosition
+        setSavedPosition(clampPosition(parsed))
+        setHasUserPosition(true)
+      } catch {
+        localStorage.removeItem(POSITION_KEY)
+      }
     }
 
     const timer = setTimeout(() => {
@@ -105,7 +137,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
 
   // Random corner jumping
   useEffect(() => {
-    if (!isVisible || isHiddenForSession || isExpanded) return
+    if (!isVisible || isHiddenForSession || isExpanded || hasUserPosition) return
 
     const scheduleJump = () => {
       const delay = 15000 + Math.random() * 20000 // 15-35 seconds
@@ -129,7 +161,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
         clearTimeout(jumpTimeoutRef.current)
       }
     }
-  }, [isVisible, isHiddenForSession, isExpanded])
+  }, [isVisible, isHiddenForSession, isExpanded, hasUserPosition])
 
   const handleDismiss = useCallback(() => {
     setIsVisible(false)
@@ -142,6 +174,24 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
     setIsHiddenForSession(false)
     setIsVisible(true)
     setIsExpanded(true)
+  }, [])
+
+  const handleDragEnd = useCallback((_event: MouseEvent | TouchEvent | PointerEvent, _info: PanInfo) => {
+    if (!clippyRef.current) return
+
+    const rect = clippyRef.current.getBoundingClientRect()
+    const nextPosition = clampPosition({ x: rect.left, y: rect.top })
+
+    setSavedPosition(nextPosition)
+    setHasUserPosition(true)
+    localStorage.setItem(POSITION_KEY, JSON.stringify(nextPosition))
+  }, [])
+
+  const handleResetPosition = useCallback(() => {
+    localStorage.removeItem(POSITION_KEY)
+    setSavedPosition(null)
+    setHasUserPosition(false)
+    setCornerIndex(0)
   }, [])
 
   const nextTip = useCallback(() => {
@@ -174,11 +224,16 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   }
 
   const currentCorner = corners[cornerIndex]
+  const positionClass = savedPosition ? "" : `${currentCorner.x} ${currentCorner.y}`
 
   return (
     <AnimatePresence>
       {isVisible && (
         <motion.div
+          ref={clippyRef}
+          drag
+          dragMomentum={false}
+          onDragEnd={handleDragEnd}
           initial={{ opacity: 0, scale: 0.5, y: 50 }}
           animate={{ 
             opacity: 1, 
@@ -193,12 +248,12 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
             damping: 20,
           }}
           className={cn(
-            "fixed z-50 flex items-end gap-3",
-            currentCorner.x,
-            currentCorner.y,
+            "fixed z-50 flex cursor-grab items-end gap-3 active:cursor-grabbing",
+            positionClass,
             currentCorner.x.includes("left") ? "flex-row-reverse" : "flex-row",
             className
           )}
+          style={savedPosition ? { left: savedPosition.x, top: savedPosition.y } : undefined}
         >
           {/* Speech Bubble */}
           <AnimatePresence mode="wait">
@@ -222,6 +277,10 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                 </Button>
                 
                 <div className="space-y-3">
+                  <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <Grip className="h-3 w-3" />
+                    {tr("clippy.dragHint")}
+                  </div>
                   <motion.p 
                     key={currentTip}
                     initial={{ opacity: 0, y: 5 }}
@@ -239,6 +298,17 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                     {tr("clippy.nextTip")}
                     <ChevronRight className="h-3 w-3" />
                   </Button>
+                  {hasUserPosition && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                      onClick={handleResetPosition}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      {tr("clippy.resetPosition")}
+                    </Button>
+                  )}
                 </div>
 
                 {/* Speech bubble tail */}

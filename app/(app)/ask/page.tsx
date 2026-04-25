@@ -609,41 +609,38 @@ function AskPageInner() {
               {tr("askPage.subtitle")}
             </p>
           </div>
-          {conversationHistory.length > 0 && (
-            <Button
-              variant={showConversation ? "default" : "outline"}
-              size="sm"
-              onClick={toggleConversation}
-              className="gap-2"
+          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+            <div
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm transition-colors ${
+                temporaryChat
+                  ? "border-amber-400/60 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                  : "border-border bg-background/80 text-muted-foreground"
+              }`}
+              title={tr("askPage.temporaryChatDescription")}
             >
-              <MessageCircle className="h-4 w-4" />
-              {showConversation ? tr("askPage.hideHistory") : tr("askPage.showHistory")}
-              {conversationHistory.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {conversationHistory.length}
-                </Badge>
-              )}
-            </Button>
-          )}
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{tr("askPage.temporaryChatShort")}</span>
+              <Switch checked={temporaryChat} onCheckedChange={handleTemporaryChange} className="scale-75" />
+            </div>
+            {conversationHistory.length > 0 && (
+              <Button
+                variant={showConversation ? "default" : "outline"}
+                size="sm"
+                onClick={toggleConversation}
+                className="gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {showConversation ? tr("askPage.hideHistory") : tr("askPage.showHistory")}
+                {conversationHistory.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {conversationHistory.length}
+                  </Badge>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </motion.div>
-
-      {/* Temporary Chat Toggle */}
-      <Card className={temporaryChat ? "border-amber-400/50 bg-amber-50/70 dark:bg-amber-950/20" : "bg-muted/30"}>
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 font-medium">
-              <RefreshCw className="h-4 w-4 text-primary" />
-              {tr("askPage.temporaryChat")}
-              {temporaryChat && <Badge variant="secondary">{tr("askPage.notSaved")}</Badge>}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {tr("askPage.temporaryChatDescription")}
-            </p>
-          </div>
-          <Switch checked={temporaryChat} onCheckedChange={handleTemporaryChange} />
-        </CardContent>
-      </Card>
 
       {/* Conversation History Panel */}
       <AnimatePresence>
@@ -660,7 +657,7 @@ function AskPageInner() {
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">
-                      {loadedHistoryItem ? "Continuing from history" : tr("askPage.historyTitle")}
+                      {loadedHistoryItem ? tr("askPage.continuingFromHistory") : tr("askPage.historyTitle")}
                     </CardTitle>
                     {loadedHistoryItem && (
                       <Badge variant="outline" className="text-xs">

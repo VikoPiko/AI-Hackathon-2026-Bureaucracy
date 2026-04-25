@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { motion, AnimatePresence } from "motion/react"
 import { useAuth } from "@/lib/auth/context"
 import { Button } from "@/components/ui/button"
 import { LanguagePicker } from "@/components/language-picker"
 import {
-  FileText,
   MessageSquare,
   LayoutDashboard,
   FolderOpen,
@@ -118,7 +118,7 @@ export default function AppLayout({
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen">
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -134,15 +134,15 @@ export default function AppLayout({
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 border-r border-sidebar-border bg-sidebar flex-col transition-[width,transform] duration-300",
-          "lg:static lg:flex lg:translate-x-0",
+          "h-dvh overflow-hidden lg:fixed lg:flex lg:translate-x-0",
           collapsed ? "lg:w-[76px] w-64" : "w-64",
           sidebarOpen ? "flex translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2 group">
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20 transition-transform group-hover:scale-105">
-              <FileText className="h-5 w-5" />
+            <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-background shadow-sm ring-1 ring-sidebar-border transition-transform group-hover:scale-105">
+              <Image src="/wisp-logo.svg" alt={tr("appShell.logoAlt")} width={31} height={36} priority />
               <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-sidebar" />
             </div>
             <span
@@ -190,7 +190,7 @@ export default function AppLayout({
           </button>
         </div>
 
-        <nav className={cn("flex-1 space-y-1 p-3 pt-4", collapsed && "lg:px-2")}>
+        <nav className={cn("flex-1 space-y-1 overflow-y-auto p-3 pt-4", collapsed && "lg:px-2")}>
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             return (
@@ -229,7 +229,7 @@ export default function AppLayout({
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3 space-y-2">
+        <div className="shrink-0 border-t border-sidebar-border p-3 space-y-2">
           <button
             type="button"
             onClick={toggleCollapsed}
@@ -284,7 +284,7 @@ export default function AppLayout({
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={cn("flex min-h-screen flex-col min-w-0 transition-[margin] duration-300", collapsed ? "lg:ml-[76px]" : "lg:ml-64")}>
         <header
           className={cn(
             "sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/70 backdrop-blur-lg px-4 sm:px-6 transition-shadow duration-300",

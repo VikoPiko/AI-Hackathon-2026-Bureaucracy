@@ -4,6 +4,7 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Palette, Sun, Moon, Monitor, Check } from "lucide-react"
 import { useTheme, THEME_PRESETS, type ThemePreset, type ThemeMode } from "@/lib/theme/context"
+import { useI18n } from "@/lib/i18n-context"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -11,10 +12,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-const modeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
+const modeOptions: { value: ThemeMode; labelKey: string; icon: typeof Sun }[] = [
+  { value: "light", labelKey: "theme.light", icon: Sun },
+  { value: "dark", labelKey: "theme.dark", icon: Moon },
+  { value: "system", labelKey: "theme.system", icon: Monitor },
 ]
 
 const presetColors: Record<ThemePreset, { primary: string; accent: string }> = {
@@ -23,6 +24,7 @@ const presetColors: Record<ThemePreset, { primary: string; accent: string }> = {
 }
 
 export function ThemePicker() {
+  const { translate: tr } = useI18n()
   const { preset, mode, setPreset, setMode } = useTheme()
   const [open, setOpen] = useState(false)
 
@@ -40,7 +42,7 @@ export function ThemePicker() {
           >
             <Palette className="h-5 w-5" />
           </motion.div>
-          <span className="sr-only">Change theme</span>
+          <span className="sr-only">{tr("theme.change")}</span>
         </Button>
       </PopoverTrigger>
       <AnimatePresence>
@@ -61,7 +63,7 @@ export function ThemePicker() {
               <div className="p-4 space-y-4">
                 {/* Theme Presets */}
                 <div>
-                  <h4 className="text-sm font-medium text-foreground mb-3">Color Theme</h4>
+                  <h4 className="text-sm font-medium text-foreground mb-3">{tr("theme.colorTheme")}</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {(Object.keys(THEME_PRESETS) as ThemePreset[]).map((key) => (
                       <motion.button
@@ -88,7 +90,7 @@ export function ThemePicker() {
                           />
                         </div>
                         <span className="text-xs font-medium text-foreground">
-                          {THEME_PRESETS[key].name}
+                          {tr(`theme.${key}`)}
                         </span>
                         {preset === key && (
                           <motion.div
@@ -109,9 +111,9 @@ export function ThemePicker() {
 
                 {/* Mode Selection */}
                 <div>
-                  <h4 className="text-sm font-medium text-foreground mb-3">Appearance</h4>
+                  <h4 className="text-sm font-medium text-foreground mb-3">{tr("theme.appearance")}</h4>
                   <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
-                    {modeOptions.map(({ value, label, icon: Icon }) => (
+                    {modeOptions.map(({ value, labelKey, icon: Icon }) => (
                       <motion.button
                         key={value}
                         onClick={() => setMode(value)}
@@ -124,7 +126,7 @@ export function ThemePicker() {
                         transition={{ type: "spring", stiffness: 400, damping: 17 }}
                       >
                         <Icon className="h-4 w-4" />
-                        <span className="hidden sm:inline">{label}</span>
+                        <span className="hidden sm:inline">{tr(labelKey)}</span>
                       </motion.button>
                     ))}
                   </div>

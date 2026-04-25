@@ -6,6 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -28,10 +37,13 @@ import {
   FileText,
   Calendar,
   AlertCircle,
+  Plus,
+  Save,
   type LucideIcon
 } from "lucide-react"
 import Link from "next/link"
-import { useUserProcesses } from "@/hooks/use-user-data"
+import { useI18n } from "@/lib/i18n-context"
+import { useUserProcesses, type Process, type ProcessDocument, type ProcessStep } from "@/hooks/use-user-data"
 
 type ProcessType = "residency" | "business" | "tax" | "education" | "driving" | "healthcare"
 
@@ -45,26 +57,94 @@ const processTypeConfig: Record<ProcessType, { icon: LucideIcon; color: string; 
 }
 
 const statusConfig = {
-  "in-progress": { label: "In Progress", className: "bg-primary/10 text-primary border-primary/20" },
-  "waiting": { label: "Waiting", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
-  "completed": { label: "Completed", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800" },
+  "in-progress": { labelKey: "common.inProgress", className: "bg-primary/10 text-primary border-primary/20" },
+  "waiting": { labelKey: "common.waiting", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
+  "completed": { labelKey: "common.completed", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800" },
 }
 
-const documentStatusConfig = {
-  submitted: { label: "Submitted", icon: CheckCircle2, className: "text-green-600" },
-  pending: { label: "Pending", icon: Clock, className: "text-amber-600" },
-  missing: { label: "Missing", icon: AlertCircle, className: "text-red-600" },
+const documentStatusConfig: Record<ProcessDocument["status"], { labelKey: string; icon: LucideIcon; className: string }> = {
+  submitted: { labelKey: "common.submitted", icon: CheckCircle2, className: "text-green-600" },
+  pending: { labelKey: "common.pending", icon: Clock, className: "text-amber-600" },
+  missing: { labelKey: "common.missing", icon: AlertCircle, className: "text-red-600" },
 }
 
 export function OngoingProcesses() {
-  const { processes, isLoaded } = useUserProcesses()
-  const [selectedProcess, setSelectedProcess] = useState<(typeof processes)[0] | null>(null)
+  const { translate: tr } = useI18n()
+  const { processes, isLoaded, updateProcess } = useUserProcesses()
+  const [selectedProcess, setSelectedProcess] = useState<Process | null>(null)
+  const [newDocumentName, setNewDocumentName] = useState("")
+
+  const calculateProgress = (process: Process) => {
+    const totalItems = process.steps.length + process.documents.length
+    if (totalItems === 0) return process.progress
+
+    const completedSteps = process.steps.filter((step) => step.status === "completed").length
+    const submittedDocuments = process.documents.filter((doc) => doc.status === "submitted").length
+    return Math.round(((completedSteps + submittedDocuments) / totalItems) * 100)
+  }
+
+  const getNextStep = (process: Process) => {
+    return process.steps.find((step) => step.status === "current")?.name
+      || process.steps.find((step) => step.status === "upcoming")?.name
+      || process.steps[process.steps.length - 1]?.name
+      || process.nextStep
+  }
+
+  const persistSelectedProcess = (nextProcess: Process) => {
+    const progress = calculateProgress(nextProcess)
+    const normalizedProcess: Process = {
+      ...nextProcess,
+      progress,
+      status: progress >= 100 ? "completed" : nextProcess.status === "completed" ? "in-progress" : nextProcess.status,
+      nextStep: getNextStep(nextProcess),
+    }
+    setSelectedProcess(normalizedProcess)
+    updateProcess(normalizedProcess.id, normalizedProcess)
+  }
+
+  const updateStepStatus = (stepId: string, status: ProcessStep["status"]) => {
+    if (!selectedProcess) return
+
+    const steps = selectedProcess.steps.map((step) => {
+      if (step.id === stepId) return { ...step, status }
+      if (status === "current" && step.status === "current") return { ...step, status: "upcoming" as const }
+      return step
+    })
+
+    persistSelectedProcess({ ...selectedProcess, steps })
+  }
+
+  const updateDocumentStatus = (documentId: string, status: ProcessDocument["status"]) => {
+    if (!selectedProcess) return
+
+    persistSelectedProcess({
+      ...selectedProcess,
+      documents: selectedProcess.documents.map((doc) => doc.id === documentId ? { ...doc, status } : doc),
+    })
+  }
+
+  const updateNotes = (notes: string) => {
+    if (!selectedProcess) return
+    persistSelectedProcess({ ...selectedProcess, notes })
+  }
+
+  const addDocument = () => {
+    if (!selectedProcess || !newDocumentName.trim()) return
+
+    const document: ProcessDocument = {
+      id: `d-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: newDocumentName.trim(),
+      status: "missing",
+    }
+    persistSelectedProcess({ ...selectedProcess, documents: [...selectedProcess.documents, document] })
+    setNewDocumentName("")
+  }
 
   if (!isLoaded) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Ongoing Processes</CardTitle>
+          <CardTitle>{tr("processes.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -79,10 +159,10 @@ export function OngoingProcesses() {
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Ongoing Processes</CardTitle>
+          <CardTitle>{tr("processes.title")}</CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1">
             <Link href="/history">
-              View all
+              {tr("common.viewAll")}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -90,9 +170,9 @@ export function OngoingProcesses() {
         <CardContent className="space-y-4">
           {processes.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground">No ongoing processes</p>
+              <p className="text-muted-foreground">{tr("processes.empty")}</p>
               <Button asChild className="mt-4">
-                <Link href="/ask">Start a new inquiry</Link>
+                <Link href="/ask">{tr("processes.startInquiry")}</Link>
               </Button>
             </div>
           ) : (
@@ -125,7 +205,7 @@ export function OngoingProcesses() {
                             variant="outline" 
                             className={statusConfig[process.status].className}
                           >
-                            {statusConfig[process.status].label}
+                            {tr(statusConfig[process.status].labelKey)}
                           </Badge>
                         </div>
                         
@@ -145,7 +225,7 @@ export function OngoingProcesses() {
                         </div>
                         
                         <p className="text-sm">
-                          <span className="text-muted-foreground">Next: </span>
+                          <span className="text-muted-foreground">{tr("processes.next")} </span>
                           <span className="font-medium">{process.nextStep}</span>
                         </p>
                       </div>
@@ -153,7 +233,7 @@ export function OngoingProcesses() {
                     
                     <div className="sm:w-32 space-y-1">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Progress</span>
+                        <span className="text-muted-foreground">{tr("processes.progress")}</span>
                         <span className="font-medium">{process.progress}%</span>
                       </div>
                       <Progress value={process.progress} className="h-2" />
@@ -186,9 +266,9 @@ export function OngoingProcesses() {
                         variant="outline" 
                         className={statusConfig[selectedProcess.status].className}
                       >
-                        {statusConfig[selectedProcess.status].label}
+                        {tr(statusConfig[selectedProcess.status].labelKey)}
                       </Badge>
-                      <span>{selectedProcess.progress}% complete</span>
+                      <span>{tr("processes.percentComplete", { percent: String(selectedProcess.progress) })}</span>
                     </DialogDescription>
                   </div>
                 </div>
@@ -198,7 +278,7 @@ export function OngoingProcesses() {
                 {/* Progress Bar */}
                 <div>
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">Overall Progress</span>
+                    <span className="text-muted-foreground">{tr("processes.overallProgress")}</span>
                     <span className="font-medium">{selectedProcess.progress}%</span>
                   </div>
                   <Progress value={selectedProcess.progress} className="h-3" />
@@ -210,7 +290,7 @@ export function OngoingProcesses() {
                     <div className="p-3 rounded-lg bg-secondary/50">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                         <Calendar className="h-4 w-4" />
-                        Next Deadline
+                        {tr("processes.nextDeadline")}
                       </div>
                       <p className="font-medium">{selectedProcess.dueDate}</p>
                     </div>
@@ -219,7 +299,7 @@ export function OngoingProcesses() {
                     <div className="p-3 rounded-lg bg-secondary/50">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                         <Clock className="h-4 w-4" />
-                        Est. Completion
+                        {tr("processes.estimatedCompletion")}
                       </div>
                       <p className="font-medium">{selectedProcess.estimatedCompletion}</p>
                     </div>
@@ -228,7 +308,7 @@ export function OngoingProcesses() {
                     <div className="p-3 rounded-lg bg-secondary/50">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                         <MapPin className="h-4 w-4" />
-                        Location
+                        {tr("processes.location")}
                       </div>
                       <p className="font-medium">{selectedProcess.location}</p>
                     </div>
@@ -236,17 +316,24 @@ export function OngoingProcesses() {
                 </div>
 
                 {/* Notes */}
-                {selectedProcess.notes && (
-                  <div className="p-4 rounded-lg border border-border bg-card">
-                    <p className="text-sm text-muted-foreground">{selectedProcess.notes}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Save className="h-4 w-4" />
+                    {tr("processes.notes")}
                   </div>
-                )}
+                  <Textarea
+                    value={selectedProcess.notes ?? ""}
+                    onChange={(event) => updateNotes(event.target.value)}
+                    placeholder={tr("processes.notesPlaceholder")}
+                    className="min-h-[90px]"
+                  />
+                </div>
 
                 {/* Steps Timeline */}
                 <div>
                   <h4 className="font-semibold mb-4 flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Process Steps
+                    {tr("processes.steps")}
                   </h4>
                   <div className="space-y-1">
                     {selectedProcess.steps.map((step, index) => (
@@ -283,15 +370,30 @@ export function OngoingProcesses() {
                         
                         {/* Step content */}
                         <div className="pb-4 flex-1">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <p className={`font-medium ${
                               step.status === "upcoming" ? "text-muted-foreground" : ""
                             }`}>
                               {step.name}
                             </p>
-                            {step.date && (
-                              <span className="text-xs text-muted-foreground">{step.date}</span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {step.date && (
+                                <span className="text-xs text-muted-foreground">{step.date}</span>
+                              )}
+                              <Select
+                                value={step.status}
+                                onValueChange={(value) => updateStepStatus(step.id, value as ProcessStep["status"])}
+                              >
+                                <SelectTrigger size="sm" className="w-[132px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="completed">{tr("common.completed")}</SelectItem>
+                                  <SelectItem value="current">{tr("processes.current")}</SelectItem>
+                                  <SelectItem value="upcoming">{tr("processes.upcoming")}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                           {step.description && (
                             <p className="text-sm text-muted-foreground mt-0.5">{step.description}</p>
@@ -306,7 +408,7 @@ export function OngoingProcesses() {
                 <div>
                   <h4 className="font-semibold mb-4 flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Required Documents
+                    {tr("processes.documents")}
                   </h4>
                   <div className="space-y-2">
                     {selectedProcess.documents.map((doc, index) => {
@@ -322,23 +424,44 @@ export function OngoingProcesses() {
                           className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-secondary/30 transition-colors"
                         >
                           <span className="text-sm">{doc.name}</span>
-                          <div className={`flex items-center gap-1.5 text-sm ${statusConf.className}`}>
-                            <StatusIcon className="h-4 w-4" />
-                            <span>{statusConf.label}</span>
-                          </div>
+                          <Select
+                            value={doc.status}
+                            onValueChange={(value) => updateDocumentStatus(doc.id, value as ProcessDocument["status"])}
+                          >
+                            <SelectTrigger size="sm" className={`w-[132px] ${statusConf.className}`}>
+                              <StatusIcon className="h-4 w-4" />
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="submitted">{tr("common.submitted")}</SelectItem>
+                              <SelectItem value="pending">{tr("common.pending")}</SelectItem>
+                              <SelectItem value="missing">{tr("common.missing")}</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </motion.div>
                       )
                     })}
+                    <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-3 sm:flex-row">
+                      <Input
+                        value={newDocumentName}
+                        onChange={(event) => setNewDocumentName(event.target.value)}
+                        placeholder={tr("processes.newDocumentPlaceholder")}
+                      />
+                      <Button type="button" onClick={addDocument} disabled={!newDocumentName.trim()} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        {tr("processes.addDocument")}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-2">
                   <Button className="flex-1" asChild>
-                    <Link href="/ask">Ask a Question</Link>
+                    <Link href="/ask">{tr("processes.askQuestion")}</Link>
                   </Button>
                   <Button variant="outline" onClick={() => setSelectedProcess(null)}>
-                    Close
+                    {tr("common.close")}
                   </Button>
                 </div>
               </div>

@@ -286,7 +286,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               {response._generatedAt && (
                 <Badge variant="outline" className="gap-1 text-muted-foreground">
                   <FileCheck className="h-3 w-3" />
-                  Verified
+                  {tr("answerDisplay.verified")}
                 </Badge>
               )}
             </div>
@@ -306,41 +306,41 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               <div className="bg-muted/30 rounded-lg p-4 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Scale className="h-4 w-4 text-primary" />
-                  Legal Foundation
+                  {tr("answerDisplay.legalFoundation")}
                 </div>
                 <div className="grid gap-2 text-sm">
                   <div className="flex items-start gap-2">
-                    <span className="text-muted-foreground min-w-[100px]">Law:</span>
+                    <span className="text-muted-foreground min-w-[100px]">{tr("answerDisplay.law")}</span>
                     <span className="font-medium">{response.legalFoundation.lawName}</span>
                   </div>
                   {response.legalFoundation.article && (
                     <div className="flex items-start gap-2">
-                      <span className="text-muted-foreground min-w-[100px]">Article:</span>
+                      <span className="text-muted-foreground min-w-[100px]">{tr("answerDisplay.article")}</span>
                       <span>{response.legalFoundation.article}</span>
                     </div>
                   )}
                   {response.legalFoundation.year && (
                     <div className="flex items-start gap-2">
-                      <span className="text-muted-foreground min-w-[100px]">Year:</span>
+                      <span className="text-muted-foreground min-w-[100px]">{tr("answerDisplay.year")}</span>
                       <span>{response.legalFoundation.year}</span>
                     </div>
                   )}
                   {response.legalFoundation.lastVerified && (
                     <div className="flex items-start gap-2">
-                      <span className="text-muted-foreground min-w-[100px]">Verified:</span>
+                      <span className="text-muted-foreground min-w-[100px]">{tr("answerDisplay.verifiedLabel")}</span>
                       <span>{response.legalFoundation.lastVerified}</span>
                     </div>
                   )}
                   {response.legalFoundation.url && (
                     <div className="flex items-start gap-2">
-                      <span className="text-muted-foreground min-w-[100px]">Source:</span>
+                      <span className="text-muted-foreground min-w-[100px]">{tr("answerDisplay.source")}</span>
                       <a 
                         href={response.legalFoundation.url} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-1"
                       >
-                        Official Source <ExternalLink className="h-3 w-3" />
+                        {tr("answerDisplay.officialSource")} <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
                   )}
@@ -358,7 +358,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-primary" />
-                Scope of This Procedure
+                {tr("answerDisplay.scopeTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -366,7 +366,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" />
-                    This Procedure Covers
+                    {tr("answerDisplay.scopeCovers")}
                   </h4>
                   <ul className="text-sm space-y-1">
                     {response.scope.covers.map((item, i) => (
@@ -381,7 +381,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4" />
-                      Does NOT Cover
+                      {tr("answerDisplay.scopeDoesNotCover")}
                     </h4>
                     <ul className="text-sm space-y-1">
                       {response.scope.doesNotCover.map((item, i) => (
@@ -406,13 +406,13 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-primary" />
-                Eligibility Requirements
+                {tr("answerDisplay.eligibility")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Who Can Apply</h4>
+                  <h4 className="text-sm font-medium mb-2">{tr("answerDisplay.whoCanApply")}</h4>
                   <div className="flex flex-wrap gap-2">
                     {response.eligibility.eligibleGroups.map((group, i) => (
                       <Badge key={i} variant="secondary">{group}</Badge>
@@ -422,7 +422,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 
                 {response.eligibility.prerequisites && response.eligibility.prerequisites.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium mb-2">Prerequisites</h4>
+                    <h4 className="text-sm font-medium mb-2">{tr("answerDisplay.prerequisites")}</h4>
                     <ul className="text-sm space-y-1">
                       {response.eligibility.prerequisites.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
@@ -436,7 +436,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 
                 {response.eligibility.exceptions && response.eligibility.exceptions.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium mb-2 text-amber-700 dark:text-amber-400">Exceptions</h4>
+                    <h4 className="text-sm font-medium mb-2 text-amber-700 dark:text-amber-400">{tr("answerDisplay.exceptions")}</h4>
                     <ul className="text-sm space-y-1">
                       {response.eligibility.exceptions.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
@@ -450,7 +450,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 
                 {response.eligibility.exclusions && response.eligibility.exclusions.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium mb-2 text-red-700 dark:text-red-400">Who Should NOT Apply</h4>
+                    <h4 className="text-sm font-medium mb-2 text-red-700 dark:text-red-400">{tr("answerDisplay.whoShouldNotApply")}</h4>
                     <ul className="text-sm space-y-1">
                       {response.eligibility.exclusions.map((item, i) => (
                         <li key={i} className="flex items-start gap-2">
@@ -474,7 +474,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Timer className="h-5 w-5 text-primary" />
-                Processing Timeline
+                {tr("answerDisplay.timeline")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -482,15 +482,15 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                     <div>
-                      <p className="text-sm text-muted-foreground">Minimum Time</p>
-                      <p className="text-lg font-semibold">{response.timeline.minimumTime || response.totalEstimatedTime || 'Varies'}</p>
+                      <p className="text-sm text-muted-foreground">{tr("answerDisplay.minimumTime")}</p>
+                      <p className="text-lg font-semibold">{response.timeline.minimumTime || response.totalEstimatedTime || tr("answerDisplay.varies")}</p>
                     </div>
                     <Clock className="h-8 w-8 text-muted-foreground/50" />
                   </div>
                   {response.timeline.maximumTime && response.timeline.minimumTime && (
                     <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                       <div>
-                        <p className="text-sm text-muted-foreground">Maximum Time</p>
+                        <p className="text-sm text-muted-foreground">{tr("answerDisplay.maximumTime")}</p>
                         <p className="text-lg font-semibold">{response.timeline.maximumTime}</p>
                       </div>
                     </div>
@@ -502,12 +502,12 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                     <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                       <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
                         <Timer className="h-4 w-4" />
-                        <span className="font-medium">Expedited Option Available</span>
+                        <span className="font-medium">{tr("answerDisplay.expeditedAvailable")}</span>
                       </div>
                       <div className="mt-2 text-sm space-y-1">
-                        <p>Time: {response.timeline.expeditedTime || 'Contact office'}</p>
+                        <p>{tr("answerDisplay.time")}: {response.timeline.expeditedTime || tr("answerDisplay.contactOffice")}</p>
                         {response.timeline.expeditedCost && (
-                          <p>Additional Cost: {response.timeline.expeditedCost}</p>
+                          <p>{tr("answerDisplay.additionalCost")}: {response.timeline.expeditedCost}</p>
                         )}
                       </div>
                     </div>
@@ -515,7 +515,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                   
                   {response.timeline.factorsAffectingTimeline && response.timeline.factorsAffectingTimeline.length > 0 && (
                     <div>
-                      <p className="text-sm font-medium mb-2">Factors That May Extend Processing</p>
+                      <p className="text-sm font-medium mb-2">{tr("answerDisplay.timelineFactors")}</p>
                       <ul className="text-sm space-y-1">
                         {response.timeline.factorsAffectingTimeline.map((factor, i) => (
                           <li key={i} className="flex items-start gap-2">
@@ -532,7 +532,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               {response.timeline.afterApproval && (
                 <div className="mt-4 pt-4 border-t">
                   <p className="text-sm">
-                    <span className="font-medium">After Approval:</span> {response.timeline.afterApproval}
+                    <span className="font-medium">{tr("answerDisplay.afterApproval")}</span> {response.timeline.afterApproval}
                   </p>
                 </div>
               )}
@@ -548,7 +548,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-primary" />
-                Cost Breakdown
+                {tr("answerDisplay.costBreakdown")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -556,7 +556,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 {response.costs.governmentFees && (
                   <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                     <div>
-                      <p className="text-sm text-muted-foreground">Government Fees</p>
+                      <p className="text-sm text-muted-foreground">{tr("answerDisplay.governmentFees")}</p>
                       <p className="text-lg font-semibold">{response.costs.governmentFees}</p>
                     </div>
                     <DollarSign className="h-8 w-8 text-muted-foreground/50" />
@@ -566,14 +566,14 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 <div className="grid md:grid-cols-2 gap-4">
                   {response.costs.translationCosts && (
                     <div className="p-3 bg-muted/30 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Translation Costs</p>
+                      <p className="text-sm text-muted-foreground">{tr("answerDisplay.translationCosts")}</p>
                       <p className="font-medium">{response.costs.translationCosts}</p>
                     </div>
                   )}
                   
                   {response.costs.notarizationCosts && (
                     <div className="p-3 bg-muted/30 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Notarization Costs</p>
+                      <p className="text-sm text-muted-foreground">{tr("answerDisplay.notarizationCosts")}</p>
                       <p className="font-medium">{response.costs.notarizationCosts}</p>
                     </div>
                   )}
@@ -581,7 +581,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 
                 {response.costs.otherCosts && response.costs.otherCosts.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium mb-2">Other Costs</p>
+                    <p className="text-sm font-medium mb-2">{tr("answerDisplay.otherCosts")}</p>
                     <div className="grid gap-2">
                       {response.costs.otherCosts.map((cost, i) => (
                         <div key={i} className="flex justify-between p-2 bg-muted/30 rounded">
@@ -596,7 +596,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 {response.costs.totalEstimate && (
                   <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">Total Estimated Cost</span>
+                      <span className="font-semibold">{tr("answerDisplay.totalEstimatedCost")}</span>
                       <span className="text-xl font-bold">{response.costs.totalEstimate}</span>
                     </div>
                   </div>
@@ -604,7 +604,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 
                 {response.costs.paymentMethods && response.costs.paymentMethods.length > 0 && (
                   <div className="text-sm">
-                    <p className="text-muted-foreground">Accepted Payment Methods:</p>
+                    <p className="text-muted-foreground">{tr("answerDisplay.paymentMethods")}</p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {response.costs.paymentMethods.map((method, i) => (
                         <Badge key={i} variant="outline">{method}</Badge>
@@ -628,10 +628,10 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <ListOrdered className="h-5 w-5 text-primary" />
-                    Steps to Complete
+                    {tr("answerDisplay.stepsToComplete")}
                   </CardTitle>
                   <span className="text-sm text-muted-foreground">
-                    {completedSteps.length}/{response.steps.length} completed
+                    {tr("answerDisplay.completedCount", { completed: String(completedSteps.length), total: String(response.steps.length) })}
                   </span>
                 </div>
                 <Progress value={stepsProgress} className="h-2 mt-2" />
@@ -729,7 +729,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                                 
                                 {step.potentialIssues && step.potentialIssues.length > 0 && (
                                   <div className="space-y-1">
-                                    <p className="text-sm font-medium">Potential Issues:</p>
+                                    <p className="text-sm font-medium">{tr("answerDisplay.potentialIssues")}</p>
                                     <ul className="text-sm space-y-1">
                                       {step.potentialIssues.map((issue, i) => (
                                         <li key={i} className="flex items-start gap-2 text-muted-foreground">
@@ -760,10 +760,10 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                       <File className="h-5 w-5 text-primary" />
-                      Required Documents
+                      {tr("answerDisplay.requiredDocuments")}
                     </CardTitle>
                     <span className="text-sm text-muted-foreground">
-                      {checkedDocs.length}/{response.requiredDocuments.length} ready
+                      {tr("answerDisplay.readyCount", { ready: String(checkedDocs.length), total: String(response.requiredDocuments.length) })}
                     </span>
                   </div>
                   <Progress value={docsProgress} className="h-2 mt-2" />
@@ -812,12 +812,12 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                                     {doc.name}
                                   </span>
                                   <Badge variant={doc.required ? "default" : "secondary"} className="text-xs">
-                                    {doc.required ? "Required" : "Optional"}
+                                    {doc.required ? tr("answerDisplay.required") : tr("answerDisplay.optional")}
                                   </Badge>
                                   {doc.translationRequired && (
                                     <Badge variant="outline" className="text-xs">
                                       <Languages className="h-3 w-3 mr-1" />
-                                      Translation Required
+                                      {tr("answerDisplay.translationRequired")}
                                     </Badge>
                                   )}
                                 </div>
@@ -830,35 +830,35 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                               
                               {doc.whereToGet && (
                                 <div className="flex items-start gap-2">
-                                  <span className="text-muted-foreground">Where to get:</span>
+                                  <span className="text-muted-foreground">{tr("answerDisplay.whereToGet")}</span>
                                   <span>{doc.whereToGet}</span>
                                 </div>
                               )}
                               
                               {doc.validityPeriod && (
                                 <div className="flex items-start gap-2">
-                                  <span className="text-muted-foreground">Valid for:</span>
+                                  <span className="text-muted-foreground">{tr("answerDisplay.validFor")}</span>
                                   <span>{doc.validityPeriod}</span>
                                 </div>
                               )}
                               
                               {doc.cost && (
                                 <div className="flex items-start gap-2">
-                                  <span className="text-muted-foreground">Cost:</span>
+                                  <span className="text-muted-foreground">{tr("answerDisplay.cost")}</span>
                                   <span className="font-medium">{doc.cost}</span>
                                 </div>
                               )}
                               
                               {doc.legalBasis && (
                                 <div className="flex items-start gap-2">
-                                  <span className="text-muted-foreground">Legal basis:</span>
+                                  <span className="text-muted-foreground">{tr("answerDisplay.legalBasis")}</span>
                                   <span>{doc.legalBasis}</span>
                                 </div>
                               )}
                               
                               {doc.requirements && doc.requirements.length > 0 && (
                                 <div>
-                                  <p className="text-muted-foreground mb-1">Requirements:</p>
+                                  <p className="text-muted-foreground mb-1">{tr("answerDisplay.requirements")}</p>
                                   <ul className="space-y-1">
                                     {doc.requirements.map((req, i) => (
                                       <li key={i} className="flex items-start gap-2">
@@ -887,7 +887,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                Detailed Instructions
+                {tr("answerDisplay.detailedInstructions")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -895,11 +895,11 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 <TabsList className="w-full">
                   <TabsTrigger value="steps" className="flex-1">
                     <ListOrdered className="h-4 w-4 mr-2" />
-                    Steps
+                    {tr("answerDisplay.steps")}
                   </TabsTrigger>
                   <TabsTrigger value="full" className="flex-1">
                     <FileText className="h-4 w-4 mr-2" />
-                    Full Response
+                    {tr("answerDisplay.fullResponse")}
                   </TabsTrigger>
                 </TabsList>
                 
@@ -926,7 +926,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                       })}
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">No detailed instructions available.</p>
+                    <p className="text-muted-foreground">{tr("answerDisplay.noDetailedInstructions")}</p>
                   )}
                 </TabsContent>
                 
@@ -948,7 +948,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-primary" />
-                Where to Go
+                {tr("answerDisplay.whereToGo")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -986,7 +986,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 {response.officeInfo.appointmentRequired && (
                   <p className="text-amber-600 flex items-start gap-2">
                     <Calendar className="h-4 w-4 flex-shrink-0 mt-1" />
-                    <strong>Appointment required</strong>
+                    <strong>{tr("answerDisplay.appointmentRequired")}</strong>
                   </p>
                 )}
                 
@@ -1006,7 +1006,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                     <Button variant="outline" size="sm" asChild className="gap-2">
                       <a href={response.officeInfo.website} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-4 w-4" />
-                        Visit Website
+                        {tr("answerDisplay.visitWebsite")}
                       </a>
                     </Button>
                   )}
@@ -1018,7 +1018,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                         rel="noopener noreferrer"
                       >
                         <MapPin className="h-4 w-4" />
-                        View on Map
+                        {tr("answerDisplay.viewOnMap")}
                       </a>
                     </Button>
                   )}
@@ -1036,13 +1036,13 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-400">
                 <ShieldAlert className="h-5 w-5" />
-                Important Warnings
+                {tr("answerDisplay.importantWarnings")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {response.warnings.commonRejections && response.warnings.commonRejections.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Common Reasons for Rejection</h4>
+                  <h4 className="text-sm font-medium mb-2">{tr("answerDisplay.commonRejections")}</h4>
                   <div className="space-y-2">
                     {response.warnings.commonRejections.map((item, i) => (
                       <div key={i} className="p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
@@ -1050,7 +1050,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                           {item.reason}
                         </p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          How to avoid: {item.howToAvoid}
+                          {tr("answerDisplay.howToAvoid")} {item.howToAvoid}
                         </p>
                       </div>
                     ))}
@@ -1061,7 +1061,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               {response.warnings.scams && response.warnings.scams.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2 text-red-700 dark:text-red-400">
-                    Scams to Avoid
+                    {tr("answerDisplay.scamsToAvoid")}
                   </h4>
                   <ul className="space-y-1">
                     {response.warnings.scams.map((scam, i) => (
@@ -1076,7 +1076,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               
               {response.warnings.whatNotToDo && response.warnings.whatNotToDo.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">What NOT to Do</h4>
+                  <h4 className="text-sm font-medium mb-2">{tr("answerDisplay.whatNotToDo")}</h4>
                   <ul className="space-y-1">
                     {response.warnings.whatNotToDo.map((item, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
@@ -1100,7 +1100,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-medium mb-1">Additional Notes</h4>
+                  <h4 className="font-medium mb-1">{tr("answerDisplay.additionalNotes")}</h4>
                   <p className="text-muted-foreground whitespace-pre-wrap">{response.additionalNotes}</p>
                 </div>
               </div>
@@ -1116,7 +1116,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Link2 className="h-5 w-5 text-primary" />
-                Related Procedures
+                {tr("answerDisplay.relatedProcedures")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1124,7 +1124,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                 {response.relatedProcedures.map((proc, i) => (
                   <div key={i} className="flex items-start gap-3">
                     <Badge variant="outline" className="flex-shrink-0">
-                      {proc.order === 'before' ? 'Do First' : proc.order === 'after' ? 'Do Next' : 'Alternative'}
+                      {proc.order === 'before' ? tr("answerDisplay.doFirst") : proc.order === 'after' ? tr("answerDisplay.doNext") : tr("answerDisplay.alternative")}
                     </Badge>
                     <div>
                       <p className="font-medium">{proc.name}</p>

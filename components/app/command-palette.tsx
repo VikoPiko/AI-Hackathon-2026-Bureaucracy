@@ -13,6 +13,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { useAuth } from "@/lib/auth/context"
+import { useI18n } from "@/lib/i18n-context"
 import { useTheme } from "@/lib/theme/context"
 import { categories } from "@/components/app/browse-categories"
 import {
@@ -45,13 +46,6 @@ export function useCommandPalette() {
   return ctx
 }
 
-const quickAsks = [
-  "How do I get a residence permit?",
-  "What documents do I need to register a company?",
-  "How to renew my passport?",
-  "What's the process for getting a driver's license?",
-]
-
 const countries = [
   { code: "BG", name: "Bulgaria", flag: "\u{1F1E7}\u{1F1EC}" },
   { code: "DE", name: "Germany", flag: "\u{1F1E9}\u{1F1EA}" },
@@ -66,8 +60,16 @@ const countries = [
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const { logout } = useAuth()
+  const { translate: tr } = useI18n()
   const { mode, setMode, setPreset } = useTheme()
   const [open, setOpen] = useState(false)
+
+  const quickAsks = [
+    tr("commandPalette.quickAskResidence"),
+    tr("commandPalette.quickAskCompany"),
+    tr("commandPalette.quickAskPassport"),
+    tr("commandPalette.quickAskLicense"),
+  ]
 
   const toggle = useCallback(() => setOpen((o) => !o), [])
 
@@ -114,40 +116,40 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
-        title="FormWise Command Palette"
-        description="Search procedures, jump pages, switch country, ask AI."
+        title={tr("commandPalette.title")}
+        description={tr("commandPalette.description")}
         className="max-w-xl"
       >
-        <CommandInput placeholder="Type a command, search a procedure, or ask AI..." />
+        <CommandInput placeholder={tr("commandPalette.placeholder")} />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{tr("common.noResults")}</CommandEmpty>
 
-          <CommandGroup heading="Navigation">
+          <CommandGroup heading={tr("commandPalette.navigation")}>
             <CommandItem onSelect={() => run(() => router.push("/dashboard"))}>
               <LayoutDashboard />
-              Dashboard
+              {tr("nav.dashboard")}
               <CommandShortcut>G D</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => run(() => router.push("/ask"))}>
               <MessageSquare />
-              Ask FormWise
+              {tr("askPage.title")}
               <CommandShortcut>G A</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => run(() => router.push("/browse"))}>
               <FolderOpen />
-              Browse Procedures
+              {tr("browse.title")}
               <CommandShortcut>G B</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => run(() => router.push("/history"))}>
               <History />
-              History
+              {tr("nav.history")}
               <CommandShortcut>G H</CommandShortcut>
             </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Quick Ask">
+          <CommandGroup heading={tr("commandPalette.quickAsk")}>
             {quickAsks.map((q) => (
               <CommandItem key={q} value={`ask ${q}`} onSelect={() => run(() => goToAsk(q))}>
                 <Sparkles className="text-primary" />
@@ -159,7 +161,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 
           <CommandSeparator />
 
-          <CommandGroup heading="Procedure Categories">
+          <CommandGroup heading={tr("commandPalette.procedureCategories")}>
             {categories.map((c) => (
               <CommandItem
                 key={c.id}
@@ -169,7 +171,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
                 <c.icon />
                 {c.name}
                 <span className="ml-auto text-xs text-muted-foreground">
-                  {c.procedureCount} procedures
+                  {tr("commandPalette.procedureCount", { count: String(c.procedureCount) })}
                 </span>
               </CommandItem>
             ))}
@@ -177,7 +179,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 
           <CommandSeparator />
 
-          <CommandGroup heading="Switch Country">
+          <CommandGroup heading={tr("commandPalette.switchCountry")}>
             {countries.map((c) => (
               <CommandItem
                 key={c.code}
@@ -193,32 +195,32 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
 
           <CommandSeparator />
 
-          <CommandGroup heading="Appearance">
+          <CommandGroup heading={tr("commandPalette.appearance")}>
             <CommandItem
               onSelect={() => run(() => setMode(mode === "dark" ? "light" : "dark"))}
             >
               {mode === "dark" ? <Sun /> : <Moon />}
-              {mode === "dark" ? "Switch to Light" : "Switch to Dark"}
+              {mode === "dark" ? tr("commandPalette.switchToLight") : tr("commandPalette.switchToDark")}
             </CommandItem>
             <CommandItem onSelect={() => run(() => setPreset("warm"))}>
               <Palette className="text-primary" />
-              Warm theme
+              {tr("theme.warm")}
             </CommandItem>
             <CommandItem onSelect={() => run(() => setPreset("fresh"))}>
               <Palette className="text-accent" />
-              Fresh theme
+              {tr("theme.fresh")}
             </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Account">
+          <CommandGroup heading={tr("commandPalette.account")}>
             <CommandItem
               onSelect={() => run(() => { logout(); router.push("/") })}
               className="text-destructive data-[selected=true]:bg-destructive/10 data-[selected=true]:text-destructive"
             >
               <LogOut />
-              Log out
+              {tr("appShell.logout")}
             </CommandItem>
           </CommandGroup>
         </CommandList>
@@ -226,18 +228,18 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
         <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <FileText className="h-3.5 w-3.5" />
-            <span>FormWise · Bureaucracy AI</span>
+            <span>{tr("commandPalette.footer")}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline">Navigate</span>
+            <span className="hidden sm:inline">{tr("commandPalette.navigate")}</span>
             <kbd className="rounded bg-background px-1.5 py-0.5 border border-border text-[10px]">
               ↑↓
             </kbd>
-            <span className="hidden sm:inline">Open</span>
+            <span className="hidden sm:inline">{tr("commandPalette.open")}</span>
             <kbd className="rounded bg-background px-1.5 py-0.5 border border-border text-[10px]">
               ↵
             </kbd>
-            <span className="hidden sm:inline">Close</span>
+            <span className="hidden sm:inline">{tr("common.close")}</span>
             <kbd className="rounded bg-background px-1.5 py-0.5 border border-border text-[10px]">
               Esc
             </kbd>

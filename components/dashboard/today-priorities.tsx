@@ -6,28 +6,29 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, ArrowRight, Calendar, Flame, Sparkles } from "lucide-react"
 import Link from "next/link"
+import { useI18n } from "@/lib/i18n-context"
 import { useUserPriorities } from "@/hooks/use-user-data"
 
 type Urgency = "critical" | "high" | "soon"
 
 const urgencyConfig: Record<
   Urgency,
-  { label: string; icon: typeof Flame; pill: string; dot: string }
+  { labelKey: string; icon: typeof Flame; pill: string; dot: string }
 > = {
   critical: {
-    label: "Critical",
+    labelKey: "dashboard.priorityCritical",
     icon: Flame,
     pill: "bg-destructive/10 text-destructive border-destructive/30",
     dot: "bg-destructive",
   },
   high: {
-    label: "Soon",
+    labelKey: "dashboard.prioritySoon",
     icon: AlertTriangle,
     pill: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300 dark:border-amber-700",
     dot: "bg-amber-500",
   },
   soon: {
-    label: "Upcoming",
+    labelKey: "dashboard.priorityUpcoming",
     icon: Calendar,
     pill: "bg-secondary text-secondary-foreground border-border",
     dot: "bg-muted-foreground",
@@ -35,6 +36,7 @@ const urgencyConfig: Record<
 }
 
 export function TodayPriorities() {
+  const { translate: tr } = useI18n()
   const { priorities, isLoaded } = useUserPriorities()
 
   if (!isLoaded) {
@@ -45,7 +47,7 @@ export function TodayPriorities() {
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary animate-pulse">
               <Flame className="h-4 w-4" />
             </div>
-            <CardTitle className="text-base">Today&apos;s priorities</CardTitle>
+            <CardTitle className="text-base">{tr("dashboard.todayPriorities")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -64,12 +66,12 @@ export function TodayPriorities() {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Flame className="h-4 w-4" />
           </div>
-          <CardTitle className="text-base">Today&apos;s priorities</CardTitle>
+          <CardTitle className="text-base">{tr("dashboard.todayPriorities")}</CardTitle>
         </div>
         <Button variant="ghost" size="sm" asChild className="gap-1 group">
           <Link href="/ask">
             <Sparkles className="h-3.5 w-3.5" />
-            Plan with AI
+            {tr("dashboard.planWithAi")}
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </Button>
@@ -77,9 +79,9 @@ export function TodayPriorities() {
       <CardContent className="space-y-2">
         {priorities.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No priorities set</p>
+            <p className="text-muted-foreground">{tr("dashboard.noPriorities")}</p>
             <Button asChild className="mt-4">
-              <Link href="/ask">Get started with AI</Link>
+              <Link href="/ask">{tr("dashboard.getStartedWithAi")}</Link>
             </Button>
           </div>
         ) : (
@@ -110,11 +112,11 @@ export function TodayPriorities() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-sm truncate">{p.title}</p>
                       <Badge variant="outline" className={`text-[10px] ${cfg.pill}`}>
-                        {cfg.label}
+                        {tr(cfg.labelKey)}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      {p.process} · due {p.due}
+                      {p.process} · {tr("dashboard.due")} {p.due}
                     </p>
                   </div>
 
@@ -123,7 +125,7 @@ export function TodayPriorities() {
                       {p.daysLeft}
                       <span className="ml-0.5 text-xs font-normal text-muted-foreground">d</span>
                     </p>
-                    <p className="text-[10px] text-muted-foreground">left</p>
+                    <p className="text-[10px] text-muted-foreground">{tr("dashboard.left")}</p>
                   </div>
 
                   <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100" />
