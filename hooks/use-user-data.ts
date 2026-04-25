@@ -56,6 +56,16 @@ export interface Activity {
   link?: string
 }
 
+interface TrackableResponse {
+  procedureName?: string
+  totalEstimatedTime?: string
+  summary?: string
+  steps?: Array<{ number?: number; title?: string; description?: string; estimatedTime?: string }>
+  requiredDocuments?: Array<{ name?: string; required?: boolean; description?: string }>
+  officeInfo?: { name?: string; address?: string }
+  timeline?: { maximumTime?: string; afterApproval?: string }
+}
+
 // Default data for new users
 export const DEFAULT_PRIORITIES: Priority[] = [
   {
@@ -215,7 +225,7 @@ const STORAGE_KEYS = {
  * Hook to manage user-specific priorities
  */
 export function useUserPriorities() {
-  const [priorities, setPriorities] = useState<Priority[]>(DEFAULT_PRIORITIES)
+  const [priorities, setPriorities] = useState<Priority[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -224,7 +234,7 @@ export function useUserPriorities() {
       try {
         setPriorities(JSON.parse(stored))
       } catch {
-        setPriorities(DEFAULT_PRIORITIES)
+        setPriorities([])
       }
     }
     setIsLoaded(true)
@@ -252,8 +262,8 @@ export function useUserPriorities() {
   }, [])
 
   const resetPriorities = useCallback(() => {
-    setPriorities(DEFAULT_PRIORITIES)
-    localStorage.setItem(STORAGE_KEYS.PRIORITIES, JSON.stringify(DEFAULT_PRIORITIES))
+    setPriorities([])
+    localStorage.setItem(STORAGE_KEYS.PRIORITIES, JSON.stringify([]))
   }, [])
 
   return { priorities, setPriorities: updatePriorities, addPriority, removePriority, resetPriorities, isLoaded }
@@ -263,7 +273,7 @@ export function useUserPriorities() {
  * Hook to manage user-specific processes
  */
 export function useUserProcesses() {
-  const [processes, setProcesses] = useState<Process[]>(DEFAULT_PROCESSES)
+  const [processes, setProcesses] = useState<Process[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -272,7 +282,7 @@ export function useUserProcesses() {
       try {
         setProcesses(JSON.parse(stored))
       } catch {
-        setProcesses(DEFAULT_PROCESSES)
+        setProcesses([])
       }
     }
     setIsLoaded(true)
@@ -308,18 +318,24 @@ export function useUserProcesses() {
   }, [])
 
   const resetProcesses = useCallback(() => {
-    setProcesses(DEFAULT_PROCESSES)
-    localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify(DEFAULT_PROCESSES))
+    setProcesses([])
+    localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify([]))
   }, [])
 
-  return { processes, setProcesses: updateProcesses, addProcess, updateProcess, removeProcess, resetProcesses, isLoaded }
+  const trackResponseAsProcess = useCallback((question: string, response: TrackableResponse, country: string) => {
+    const trackedProcess = createProcessFromResponse(question, response, country)
+    addProcess(trackedProcess)
+    return trackedProcess
+  }, [addProcess])
+
+  return { processes, setProcesses: updateProcesses, addProcess, updateProcess, removeProcess, resetProcesses, trackResponseAsProcess, isLoaded }
 }
 
 /**
  * Hook to manage user-specific activities
  */
 export function useUserActivities() {
-  const [activities, setActivities] = useState<Activity[]>(DEFAULT_ACTIVITIES)
+  const [activities, setActivities] = useState<Activity[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -328,7 +344,7 @@ export function useUserActivities() {
       try {
         setActivities(JSON.parse(stored))
       } catch {
-        setActivities(DEFAULT_ACTIVITIES)
+        setActivities([])
       }
     }
     setIsLoaded(true)
@@ -348,8 +364,8 @@ export function useUserActivities() {
   }, [])
 
   const resetActivities = useCallback(() => {
-    setActivities(DEFAULT_ACTIVITIES)
-    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(DEFAULT_ACTIVITIES))
+    setActivities([])
+    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify([]))
   }, [])
 
   return { activities, setActivities: updateActivities, addActivity, resetActivities, isLoaded }
@@ -363,10 +379,53 @@ export function initializeUserData() {
 
   const initialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED)
   if (!initialized) {
-    localStorage.setItem(STORAGE_KEYS.PRIORITIES, JSON.stringify(DEFAULT_PRIORITIES))
-    localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify(DEFAULT_PROCESSES))
-    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(DEFAULT_ACTIVITIES))
+    localStorage.setItem(STORAGE_KEYS.PRIORITIES, JSON.stringify([]))
+    localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify([]))
+    localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify([]))
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, "true")
+  }
+}
+
+export function createProcessFromResponse(question: string, response: TrackableResponse, country: string): Process {
+  const name = response.procedureName || question.slice(0, 80) || "Tracked procedure"
+  const lower = `${name} ${question}`.toLowerCase()
+  const type: Process["type"] =
+    lower.includes("business") || lower.includes("company") ? "business" :
+    lower.includes("tax") ? "tax" :
+    lower.includes("study") || lower.includes("education") ? "education" :
+    lower.includes("driver") || lower.includes("license") ? "driving" :
+    lower.includes("health") || lower.includes("insurance") ? "healthcare" :
+    "residency"
+
+  const steps = (response.steps?.length ? response.steps : [{ title: "Review guidance", description: response.summary || question }])
+    .slice(0, 8)
+    .map((step, index): ProcessStep => ({
+      id: `s-${index + 1}`,
+      name: step.title || `Step ${index + 1}`,
+      description: step.description || step.estimatedTime,
+      status: index === 0 ? "current" : "upcoming",
+    }))
+
+  const documents = (response.requiredDocuments ?? [])
+    .slice(0, 12)
+    .map((doc, index): ProcessDocument => ({
+      id: `d-${index + 1}`,
+      name: doc.name || `Document ${index + 1}`,
+      status: doc.required === false ? "pending" : "missing",
+    }))
+
+  return {
+    id: `process-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    type,
+    status: "in-progress",
+    progress: 0,
+    nextStep: steps[0]?.name || "Review guidance",
+    location: response.officeInfo?.name || country,
+    steps,
+    documents,
+    estimatedCompletion: response.timeline?.maximumTime || response.totalEstimatedTime,
+    notes: response.summary || `Tracked from question: ${question}`,
   }
 }
 

@@ -33,8 +33,10 @@ import {
   Link2,
   FileCheck,
   Languages,
-  Globe
+  Globe,
+  ShieldCheck
 } from "lucide-react"
+import { useI18n } from "@/lib/i18n-context"
 
 // Enhanced type to include all new fields
 interface BureaucracyResponse {
@@ -84,6 +86,11 @@ interface BureaucracyResponse {
     totalEstimate?: string
   }
   additionalNotes?: string
+  confidenceScore?: number
+  confidenceReasons?: string[]
+  needsMoreContext?: boolean
+  missingContext?: string[]
+  followUpQuestions?: string[]
   relatedProcedures?: Array<{
     name: string
     description?: string
@@ -147,7 +154,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.25, 0.4, 0.25, 1] },
+    transition: { duration: 0.5 },
   },
 }
 
@@ -156,6 +163,7 @@ interface AnswerDisplayProps {
 }
 
 export function AnswerDisplay({ response }: AnswerDisplayProps) {
+  const { translate: tr } = useI18n()
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [checkedDocs, setCheckedDocs] = useState<string[]>([])
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
@@ -195,6 +203,27 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
   // Check if we have structured data or need to show raw content
   const hasStructuredSteps = response.steps.length > 0 && response.steps[0]?.number > 0
   const hasRawContent = Boolean(response._rawContent)
+  const confidenceScore = typeof response.confidenceScore === "number"
+    ? Math.round(Math.max(0, Math.min(1, response.confidenceScore)) * 100)
+    : null
+  const confidenceLabel = confidenceScore === null
+    ? tr("confidence.unrated")
+    : confidenceScore >= 85
+      ? tr("confidence.high")
+      : confidenceScore >= 65
+        ? tr("confidence.good")
+        : confidenceScore >= 45
+          ? tr("confidence.verify")
+          : tr("confidence.low")
+  const confidenceTone = confidenceScore === null
+    ? "border-muted bg-muted/30"
+    : confidenceScore >= 85
+      ? "border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/20"
+      : confidenceScore >= 65
+        ? "border-blue-500/40 bg-blue-50 dark:bg-blue-950/20"
+        : confidenceScore >= 45
+          ? "border-amber-500/40 bg-amber-50 dark:bg-amber-950/20"
+          : "border-red-500/40 bg-red-50 dark:bg-red-950/20"
 
   return (
     <motion.div
@@ -203,6 +232,43 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
       animate="visible"
       className="space-y-6"
     >
+      {/* Confidence Card */}
+      <motion.div variants={itemVariants}>
+        <Card className={cn("overflow-hidden border", confidenceTone)}>
+          <CardContent className="p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <p className="font-semibold">{tr("confidence.title")}</p>
+                  <Badge variant="outline">{confidenceLabel}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {response.needsMoreContext
+                    ? tr("confidence.needsContext")
+                    : tr("confidence.body")}
+                </p>
+                {response.confidenceReasons && response.confidenceReasons.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {response.confidenceReasons.slice(0, 4).map((reason) => (
+                      <Badge key={reason} variant="secondary" className="whitespace-normal text-left">
+                        {reason}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-[150px] space-y-2 text-right">
+                <div className="text-3xl font-bold">
+                  {confidenceScore === null ? "--" : `${confidenceScore}%`}
+                </div>
+                <Progress value={confidenceScore ?? 0} className="h-2" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Summary Card with Legal Foundation */}
       <motion.div variants={itemVariants}>
         <Card className="border-l-4 border-l-primary overflow-hidden">

@@ -5,7 +5,9 @@
  * Uses pdf-parse and mammoth for browser-side file reading
  */
 
-let pdfParseModule: typeof import('pdf-parse') | null = null;
+type PdfParseFn = (buffer: Buffer) => Promise<{ text: string }>;
+
+let pdfParseModule: { default?: PdfParseFn } | PdfParseFn | null = null;
 let mammothModule: typeof import('mammoth') | null = null;
 
 // Dynamic import for pdf-parse (server-side safe, but browser needs dynamic import)
@@ -13,12 +15,12 @@ async function getPdfParse() {
   if (typeof window === 'undefined') {
     // Server-side - use regular import
     const mod = await import('pdf-parse');
-    return mod.default;
+    return mod.default as PdfParseFn;
   }
   if (!pdfParseModule) {
     pdfParseModule = await import('pdf-parse');
   }
-  return pdfParseModule.default;
+  return (typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default) as PdfParseFn;
 }
 
 // Dynamic import for mammoth

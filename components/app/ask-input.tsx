@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -34,10 +34,23 @@ export function AskInput({
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    setQuestion(initialValue ?? "")
+  }, [initialValue])
+
+  useEffect(() => {
+    setCountry(initialCountry)
+  }, [initialCountry])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (question.trim() && !isLoading) {
       onSubmit(question.trim(), file || undefined, country)
+      setQuestion("")
+      setFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
   }
 

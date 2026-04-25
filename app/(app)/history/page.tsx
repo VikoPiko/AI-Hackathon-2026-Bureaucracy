@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, MessageSquare, FileText, Calendar, ArrowRight, Trash2, Sparkles, Edit3, RefreshCw } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import { Search, MessageSquare, FileText, Calendar, Trash2, Sparkles, Edit3, ClipboardList, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useI18n } from "@/lib/i18n-context"
 import { useQuestionHistory, type QuestionHistoryItem } from "@/hooks/use-question-history"
@@ -19,12 +21,15 @@ export default function HistoryPage() {
   const { history, isLoaded, deleteQuestion, clearHistory, searchHistory } = useQuestionHistory()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
+  const [selectedItem, setSelectedItem] = useState<QuestionHistoryItem | null>(null)
 
-  // Handle clicking on a history item to continue the conversation
+  // Handle clicking on a history item to inspect the saved answer
   const handleItemClick = (item: QuestionHistoryItem) => {
-    // Navigate to ask page with the question pre-filled
-    const encodedQuestion = encodeURIComponent(item.fullQuestion)
-    router.push(`/ask?q=${encodedQuestion}&country=${item.country}&historyId=${item.id}`)
+    setSelectedItem(item)
+  }
+
+  const handleContinue = (item: QuestionHistoryItem) => {
+    router.push(`/ask?historyId=${item.id}`)
   }
 
   // Filter based on search and tab
@@ -32,6 +37,13 @@ export default function HistoryPage() {
     const matchesTab = activeTab === "all" || item.type === activeTab
     return matchesTab
   })
+
+  const selectedResponse = selectedItem?.response
+  const confidenceScore = typeof selectedResponse?.confidenceScore === "number"
+    ? Math.round(Math.max(0, Math.min(1, selectedResponse.confidenceScore as number)) * 100)
+    : null
+  const steps = Array.isArray(selectedResponse?.steps) ? selectedResponse.steps.slice(0, 5) : []
+  const documents = Array.isArray(selectedResponse?.requiredDocuments) ? selectedResponse.requiredDocuments.slice(0, 6) : []
 
   // Loading state
   if (!isLoaded) {
@@ -88,7 +100,7 @@ export default function HistoryPage() {
               className="gap-2 text-destructive hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
-              Clear All
+              {tr("history.clearAll")}
             </Button>
           )}
         </div>
@@ -142,19 +154,19 @@ export default function HistoryPage() {
                 <CardContent className="flex flex-col items-center justify-center text-center pt-6">
                   <Search className="h-10 w-10 text-muted-foreground mb-4" />
                   <h3 className="font-medium">
-                    {searchQuery ? tr("common.noResults") : "No history yet"}
+                    {searchQuery ? tr("common.noResults") : tr("history.noHistory")}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {searchQuery 
                       ? tr("history.noResultsBody")
-                      : "Start asking questions to build your history"
+                      : tr("history.startAsking")
                     }
                   </p>
                   {!searchQuery && (
                     <Button asChild className="mt-4 gap-2">
                       <Link href="/ask">
                         <Sparkles className="h-4 w-4" />
-                        Ask your first question
+                        {tr("history.askFirst")}
                       </Link>
                     </Button>
                   )}
@@ -227,7 +239,7 @@ export default function HistoryPage() {
                                 e.stopPropagation()
                                 handleItemClick(item)
                               }}
-                              title="Continue this conversation"
+                              title={tr("history.continueInAsk")}
                             >
                               <Edit3 className="h-4 w-4 text-primary" />
                             </Button>
@@ -257,6 +269,119 @@ export default function HistoryPage() {
           </TabsContent>
         </Tabs>
       </motion.div>
+
+      <Dialog open={Boolean(selectedItem)} onOpenChange={(open) => !open && setSelectedItem(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          {selectedItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {selectedItem.type === "question" ? <MessageSquare className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                  {tr("history.detailTitle")}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedItem.date} · {selectedItem.country} · {selectedItem.type}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-5">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm font-medium mb-2">{tr("history.prompt")}</p>
+                  <p className="text-sm whitespace-pre-wrap">{selectedItem.fullQuestion}</p>
+                </div>
+
+                {selectedResponse ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {typeof selectedResponse.procedureName === "string" && (
+                        <Badge variant="secondary">{selectedResponse.procedureName}</Badge>
+                      )}
+                      {confidenceScore !== null && (
+                        <Badge variant="outline" className="gap-1">
+                          <ShieldCheck className="h-3 w-3" />
+                          {tr("history.confidence")}: {confidenceScore}%
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium mb-2">{tr("history.response")}</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {typeof selectedResponse.summary === "string"
+                          ? selectedResponse.summary
+                          : typeof selectedResponse._rawContent === "string"
+                            ? selectedResponse._rawContent
+                            : selectedItem.preview}
+                      </p>
+                    </div>
+
+                    {steps.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">{tr("history.steps")}</p>
+                        <div className="space-y-2">
+                          {steps.map((step, index) => (
+                            <div key={`${String(step?.title ?? "step")}-${index}`} className="rounded-lg border p-3 text-sm">
+                              <p className="font-medium">{String(step?.title ?? `${tr("history.step")} ${index + 1}`)}</p>
+                              {step?.description && (
+                                <p className="text-muted-foreground mt-1">{String(step.description)}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {documents.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">{tr("history.documents")}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {documents.map((doc, index) => (
+                            <Badge key={`${String(doc?.name ?? "doc")}-${index}`} variant="outline">
+                              {String(doc?.name ?? `${tr("common.documents")} ${index + 1}`)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {typeof selectedResponse._rawContent === "string" && !selectedResponse.summary && (
+                      <>
+                        <Separator />
+                        <div>
+                          <p className="text-sm font-medium mb-2">{tr("history.rawResponse")}</p>
+                          <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap">
+                            {selectedResponse._rawContent}
+                          </pre>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{tr("history.noResponseSaved")}</p>
+                )}
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    deleteQuestion(selectedItem.id)
+                    setSelectedItem(null)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {tr("history.delete")}
+                </Button>
+                <Button className="gap-2" onClick={() => handleContinue(selectedItem)}>
+                  <ClipboardList className="h-4 w-4" />
+                  {tr("history.continueInAsk")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Quick Actions */}
       <motion.div

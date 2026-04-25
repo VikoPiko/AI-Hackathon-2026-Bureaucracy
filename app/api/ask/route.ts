@@ -3,6 +3,7 @@ import { runSirmaAgent } from '@/lib/sirma-agent';
 import { getSirmaConfig, isSirmaConfigured } from '@/lib/sirma-config';
 import { COUNTRY_NAMES } from '@/lib/types';
 import { scrapeGovernmentInfo, formatGovernmentFallback, extractGovernmentOffice } from '@/lib/government-sources';
+import type { BureaucracyResponse } from '@/lib/ai/schemas';
 
 const askRequestSchema = z.object({
   text: z.string().trim().min(1),
@@ -15,6 +16,16 @@ const askRequestSchema = z.object({
   })).optional().describe("Previous conversation for context in follow-up questions"),
   isFollowUp: z.boolean().optional().default(false).describe("Whether this is a follow-up to a previous question"),
 });
+
+type NormalizableResponse = Partial<BureaucracyResponse> & {
+  _rawContent?: string;
+  _sessionId?: string;
+  _country?: string;
+  _language?: string;
+  _generatedAt?: string;
+  _fallbackSource?: string;
+  _parsedFromText?: boolean;
+};
 
 export async function POST(req: Request) {
   try {
@@ -170,6 +181,15 @@ CRITICAL INSTRUCTIONS - Provide a COMPREHENSIVE, DETAILED response following thi
     {"name": "Related procedure name", "description": "How it relates", "order": "before | after | alternative"}
   ],
 
+  "confidenceScore": 0.82,
+  "confidenceReasons": [
+    "Official source or legal basis was identified",
+    "Key steps, required documents, costs, and timeline are present"
+  ],
+  "needsMoreContext": false,
+  "missingContext": [],
+  "followUpQuestions": [],
+
   "scope": {
     "covers": ["What this procedure covers"],
     "doesNotCover": ["What this procedure does NOT cover"]
@@ -186,6 +206,8 @@ CRITICAL INSTRUCTIONS - Provide a COMPREHENSIVE, DETAILED response following thi
 5. Specify exact form numbers when known
 6. Mention recent changes or reforms if relevant
 7. Cover edge cases and variations
+8. confidenceScore MUST be between 0 and 1. Use lower values when official sources are weak, the user's situation is underspecified, or fields are unknown.
+9. If the user's question lacks important facts (nationality, current status, city/region, procedure subtype, deadline, family/employment situation), set needsMoreContext=true and list exact missingContext and followUpQuestions while still giving safe general guidance.
 
 Return ONLY the JSON object. No markdown fences, no explanations before or after.`;
 
@@ -237,6 +259,10 @@ Return ONLY the JSON object. No markdown fences, no explanations before or after
       parsedResponse._country = countryName;
       parsedResponse._language = language;
       parsedResponse._generatedAt = new Date().toISOString();
+      parsedResponse = normalizeProcedureResponse(parsedResponse, {
+        usedFallback: false,
+        parsedFromText: parsedResponse._parsedFromText === true,
+      });
 
       return Response.json({ response: parsedResponse });
     } catch (error) {
@@ -252,8 +278,7 @@ Return ONLY the JSON object. No markdown fences, no explanations before or after
         
         if (success && scrapedContent) {
           const fallbackContent = formatGovernmentFallback(text, scrapedContent, sources);
-          return Response.json({
-            response: {
+          const fallbackResponse = normalizeProcedureResponse({
               procedureName: `Information about: ${text.slice(0, 50)}`,
               difficulty: "moderate" as const,
               totalEstimatedTime: "Varies - check official sources",
@@ -290,12 +315,25 @@ Return ONLY the JSON object. No markdown fences, no explanations before or after
               },
               relatedProcedures: [],
               additionalNotes: fallbackContent,
+              confidenceScore: 0.38,
+              confidenceReasons: [
+                "The primary AI procedure engine failed, so this uses limited government-source fallback content.",
+                "Exact steps, documents, and fees still need confirmation with the official authority.",
+              ],
+              needsMoreContext: true,
+              missingContext: ["Specific procedure subtype", "Applicant status or eligibility situation"],
+              followUpQuestions: [
+                "What exact procedure or document are you applying for?",
+                "What is your current status or nationality, if relevant?",
+              ],
               _rawContent: fallbackContent,
               _fallbackSource: "government_scrape",
               _country: countryName,
               _language: language,
               _generatedAt: new Date().toISOString(),
-},
+            }, { usedFallback: true });
+          return Response.json({
+            response: fallbackResponse,
           });
         }
       } catch (scrapeError) {
@@ -418,6 +456,85 @@ function parseTextResponse(content: string, question: string) {
       doesNotCover: ['Specific case-by-case determinations'],
     },
     additionalNotes: '',
+    confidenceScore: 0.34,
+    confidenceReasons: [
+      'The model response could not be parsed as structured JSON.',
+      'Use this as a starting point and verify details with an official source.',
+    ],
+    needsMoreContext: true,
+    missingContext: ['Official source confirmation', 'Exact applicant situation'],
+    followUpQuestions: [
+      'Which exact authority or city will handle this procedure?',
+      'What is your current status or eligibility situation?',
+    ],
+    _parsedFromText: true,
+  };
+}
+
+function normalizeProcedureResponse(
+  response: NormalizableResponse,
+  options: { usedFallback?: boolean; parsedFromText?: boolean } = {},
+): NormalizableResponse {
+  const reasons = new Set<string>(response.confidenceReasons?.filter(Boolean) ?? []);
+  const hasLegalSource = Boolean(response.legalFoundation?.url || response.officeInfo?.website);
+  const hasSteps = Array.isArray(response.steps) && response.steps.length >= 3;
+  const hasDocuments = Array.isArray(response.requiredDocuments) && response.requiredDocuments.length > 0;
+  const hasCostsOrTimeline = Boolean(response.costs?.governmentFees || response.costs?.totalEstimate || response.timeline?.maximumTime || response.totalEstimatedTime);
+  const needsMoreContext = Boolean(
+    response.needsMoreContext ||
+    (Array.isArray(response.missingContext) && response.missingContext.length > 0) ||
+    (Array.isArray(response.followUpQuestions) && response.followUpQuestions.length > 0)
+  );
+
+  let score = typeof response.confidenceScore === 'number' ? response.confidenceScore : 0.55;
+
+  if (typeof response.confidenceScore !== 'number') {
+    if (hasLegalSource) {
+      score += 0.14;
+      reasons.add('Official source or legal foundation is present.');
+    }
+    if (hasSteps) {
+      score += 0.1;
+      reasons.add('The response includes a structured step-by-step procedure.');
+    }
+    if (hasDocuments) {
+      score += 0.08;
+      reasons.add('Required documents are listed.');
+    }
+    if (hasCostsOrTimeline) {
+      score += 0.06;
+      reasons.add('Timeline or cost information is included.');
+    }
+  }
+
+  if (options.usedFallback || response._fallbackSource) {
+    score -= 0.22;
+    reasons.add('Fallback source was used, so details should be verified with the authority.');
+  }
+
+  if (options.parsedFromText) {
+    score -= 0.18;
+    reasons.add('The response was recovered from unstructured text.');
+  }
+
+  if (needsMoreContext) {
+    score -= 0.14;
+    reasons.add('More user context is needed for a case-specific answer.');
+  }
+
+  if (!hasLegalSource) {
+    reasons.add('Official source links were not fully identified.');
+  }
+
+  const clampedScore = Math.max(0.15, Math.min(0.95, score));
+
+  return {
+    ...response,
+    confidenceScore: Number(clampedScore.toFixed(2)),
+    confidenceReasons: Array.from(reasons).slice(0, 4),
+    needsMoreContext,
+    missingContext: response.missingContext ?? [],
+    followUpQuestions: response.followUpQuestions ?? [],
   };
 }
 

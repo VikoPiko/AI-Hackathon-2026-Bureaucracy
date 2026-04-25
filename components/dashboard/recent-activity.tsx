@@ -3,7 +3,7 @@
 import { motion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, MessageSquare, FileText, CheckCircle2, ExternalLink, Sparkles } from "lucide-react"
+import { ArrowRight, MessageSquare, FileText, CheckCircle2, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useQuestionHistory } from "@/hooks/use-question-history"
 import { formatDistanceToNow } from "date-fns"
@@ -114,15 +114,7 @@ export function RecentActivity() {
                           {activity.title}
                         </p>
 
-                        {activity.link && (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            whileHover={{ opacity: 1 }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                          </motion.div>
-                        )}
+                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                       </div>
 
                       {activity.preview && (

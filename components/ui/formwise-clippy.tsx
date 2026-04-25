@@ -1,21 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { usePathname } from "next/navigation"
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "motion/react"
-import { X, ChevronRight } from "lucide-react"
+import { X, ChevronRight, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useI18n } from "@/lib/i18n-context"
 
-const tips = [
-  { text: "It looks like you're trying to navigate bureaucracy! Need some help with that?", category: "greeting" },
-  { text: "Did you know? You can upload documents for instant analysis!", category: "feature" },
-  { text: "Pro tip: Check off completed steps to track your progress!", category: "tip" },
-  { text: "Need help? Just ask me anything about bureaucratic processes.", category: "help" },
-  { text: "Save time by browsing our categorized procedure guides!", category: "feature" },
-  { text: "Your documents are processed securely and never stored.", category: "security" },
-  { text: "Having trouble? Try breaking down your question into smaller parts!", category: "tip" },
-  { text: "Remember to gather all required documents before starting a procedure!", category: "tip" },
-]
+const SESSION_HIDE_KEY = "formwise-clippy-hidden-session"
 
 // Corner positions for Clippy to jump to
 const corners = [
@@ -31,10 +24,12 @@ interface FormWiseClippyProps {
 }
 
 export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClippyProps) {
+  const pathname = usePathname()
+  const { translate: tr } = useI18n()
   const [isVisible, setIsVisible] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [currentTip, setCurrentTip] = useState(0)
-  const [isDismissed, setIsDismissed] = useState(false)
+  const [isHiddenForSession, setIsHiddenForSession] = useState(false)
   const [cornerIndex, setCornerIndex] = useState(0)
   const [isJumping, setIsJumping] = useState(false)
   const [isBouncing, setIsBouncing] = useState(false)
@@ -42,6 +37,19 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   const jumpTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const bounceIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
+  const routeKey = pathname?.startsWith("/ask")
+    ? "ask"
+    : pathname?.startsWith("/dashboard")
+      ? "dashboard"
+      : pathname?.startsWith("/history")
+        ? "history"
+        : "default"
+  const tips = [
+    tr(`clippy.tips.${routeKey}.one`),
+    tr(`clippy.tips.${routeKey}.two`),
+    tr(`clippy.tips.${routeKey}.three`),
+  ].filter((tip) => tip && !tip.startsWith("clippy."))
+
   // Mouse tracking for eyes
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
@@ -51,9 +59,9 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   const eyeY = useTransform(smoothMouseY, [-500, 500], [-3, 3])
 
   useEffect(() => {
-    const dismissed = localStorage.getItem("formwise-clippy-dismissed")
-    if (dismissed) {
-      setIsDismissed(true)
+    const hidden = sessionStorage.getItem(SESSION_HIDE_KEY)
+    if (hidden) {
+      setIsHiddenForSession(true)
       return
     }
 
@@ -79,7 +87,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
 
   // Random bouncing behavior
   useEffect(() => {
-    if (!isVisible || isDismissed) return
+    if (!isVisible || isHiddenForSession) return
 
     bounceIntervalRef.current = setInterval(() => {
       if (!isExpanded && Math.random() > 0.6) {
@@ -93,11 +101,11 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
         clearInterval(bounceIntervalRef.current)
       }
     }
-  }, [isVisible, isDismissed, isExpanded])
+  }, [isVisible, isHiddenForSession, isExpanded])
 
   // Random corner jumping
   useEffect(() => {
-    if (!isVisible || isDismissed || isExpanded) return
+    if (!isVisible || isHiddenForSession || isExpanded) return
 
     const scheduleJump = () => {
       const delay = 15000 + Math.random() * 20000 // 15-35 seconds
@@ -121,17 +129,24 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
         clearTimeout(jumpTimeoutRef.current)
       }
     }
-  }, [isVisible, isDismissed, isExpanded])
+  }, [isVisible, isHiddenForSession, isExpanded])
 
   const handleDismiss = useCallback(() => {
     setIsVisible(false)
-    localStorage.setItem("formwise-clippy-dismissed", "true")
-    setIsDismissed(true)
+    sessionStorage.setItem(SESSION_HIDE_KEY, "true")
+    setIsHiddenForSession(true)
+  }, [])
+
+  const handleRestore = useCallback(() => {
+    sessionStorage.removeItem(SESSION_HIDE_KEY)
+    setIsHiddenForSession(false)
+    setIsVisible(true)
+    setIsExpanded(true)
   }, [])
 
   const nextTip = useCallback(() => {
     setCurrentTip((prev) => (prev + 1) % tips.length)
-  }, [])
+  }, [tips.length])
 
   const handleClippyClick = () => {
     setIsExpanded(!isExpanded)
@@ -142,7 +157,21 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
     }
   }
 
-  if (isDismissed) return null
+  if (isHiddenForSession) {
+    return (
+      <Button
+        type="button"
+        size="icon"
+        variant="secondary"
+        onClick={handleRestore}
+        className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg"
+        aria-label={tr("clippy.restore")}
+        title={tr("clippy.restore")}
+      >
+        <HelpCircle className="h-5 w-5" />
+      </Button>
+    )
+  }
 
   const currentCorner = corners[cornerIndex]
 
@@ -199,7 +228,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                     animate={{ opacity: 1, y: 0 }}
                     className="text-sm leading-relaxed"
                   >
-                    {tips[currentTip].text}
+                    {tips[currentTip % tips.length] || tr("clippy.tips.default.one")}
                   </motion.p>
                   <Button
                     variant="ghost"
@@ -207,7 +236,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                     className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
                     onClick={nextTip}
                   >
-                    Next tip
+                    {tr("clippy.nextTip")}
                     <ChevronRight className="h-3 w-3" />
                   </Button>
                 </div>

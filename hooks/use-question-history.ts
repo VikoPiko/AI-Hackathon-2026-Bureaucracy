@@ -30,6 +30,10 @@ export interface QuestionStats {
   countriesUsed: Record<string, number>
 }
 
+export interface AddQuestionOptions {
+  temporary?: boolean
+}
+
 // Storage key
 const STORAGE_KEY = "formwise-question-history"
 const MAX_ITEMS = 100  // Keep last 100 items
@@ -71,9 +75,14 @@ export function useQuestionHistory() {
     response: Record<string, unknown> | null,
     country: string,
     language: string,
-    documentAnalysis: boolean = false
+    documentAnalysis: boolean = false,
+    options: AddQuestionOptions = {}
   ): string => {
     const id = `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    if (options.temporary) {
+      return `temp-${id}`
+    }
     
     // Create title from question (truncate if too long)
     const title = question.length > 60 
@@ -174,6 +183,10 @@ export function useQuestionHistory() {
     return history.slice(0, limit)
   }, [history])
 
+  const getQuestionById = useCallback((id: string): QuestionHistoryItem | undefined => {
+    return history.find(item => item.id === id)
+  }, [history])
+
   return {
     history,
     isLoaded,
@@ -183,7 +196,8 @@ export function useQuestionHistory() {
     clearHistory,
     searchHistory,
     getStats,
-    getRecentItems
+    getRecentItems,
+    getQuestionById
   }
 }
 

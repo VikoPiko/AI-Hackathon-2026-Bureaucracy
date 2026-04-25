@@ -11,12 +11,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Lightbulb, X, RotateCcw, AlertCircle, MessageCircle, ChevronRight, Clock, MapPin, HelpCircle, Search, History, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Lightbulb, RotateCcw, AlertCircle, MessageCircle, ChevronRight, Clock, MapPin, History, RefreshCw, ShieldCheck, ClipboardList } from "lucide-react";
 import type { BureaucracyResponse } from "@/lib/ai/schemas";
 import { getCountryName } from "@/components/app/country-selector";
 import { format } from "date-fns";
 import { useI18n } from "@/lib/i18n-context";
 import { useQuestionHistory, validateQuestion, type QuestionHistoryItem } from "@/hooks/use-question-history";
+import { useUserProcesses } from "@/hooks/use-user-data";
+
+const TEMP_CHAT_STORAGE_KEY = "formwise-temporary-chat-enabled";
 
 // Document Risk response type
 interface DocumentRiskResponse {
@@ -43,6 +48,7 @@ interface ConversationMessage {
   country?: string;
   response?: BureaucracyResponse;
   documentAnalysis?: DocumentRiskResponse;
+  temporary?: boolean;
 }
 
 // Suggested follow-up questions type
@@ -59,6 +65,7 @@ function AskPageInner() {
   
   // Question history hook
   const { addQuestion, history } = useQuestionHistory();
+  const { trackResponseAsProcess } = useUserProcesses();
   
   // State for loaded history item
   const [loadedHistoryItem, setLoadedHistoryItem] = useState<QuestionHistoryItem | null>(null);
@@ -94,6 +101,16 @@ function AskPageInner() {
   const [lastCountry, setLastCountry] = useState<string>("BG");
   const [prefill, setPrefill] = useState<string>(initialQ);
   const [needsMoreInfo, setNeedsMoreInfo] = useState<boolean>(false);
+  const [temporaryChat, setTemporaryChat] = useState(false);
+  const [missingContextText, setMissingContextText] = useState("");
+  const [missingContextDetails, setMissingContextDetails] = useState<{
+    originalQuestion: string;
+    response?: BureaucracyResponse;
+    missingContext: string[];
+    followUpQuestions: string[];
+  } | null>(null);
+  const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
+  const [trackedProcessIds, setTrackedProcessIds] = useState<string[]>([]);
   
   // Question validation state
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -119,13 +136,28 @@ function AskPageInner() {
     }
   }, [conversationHistory, showConversation, scrollToBottom]);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(TEMP_CHAT_STORAGE_KEY);
+    setTemporaryChat(stored === "true");
+  }, []);
+
+  const handleTemporaryChange = (checked: boolean) => {
+    setTemporaryChat(checked);
+    localStorage.setItem(TEMP_CHAT_STORAGE_KEY, String(checked));
+    if (checked) {
+      toast.info(tr("askPage.temporaryEnabled"), {
+        description: tr("askPage.temporaryEnabledBody"),
+      });
+    }
+  };
+
   // Load history item when historyId is provided
   useEffect(() => {
     if (historyId && history.length > 0) {
       const item = history.find(h => h.id === historyId);
       if (item) {
         setLoadedHistoryItem(item);
-        setPrefill(item.fullQuestion);
+        setPrefill("");
         setLastCountry(item.country);
         setShowConversation(true);
         
@@ -143,14 +175,23 @@ function AskPageInner() {
           country: item.country,
           response: item.response as BureaucracyResponse,
         };
-        setConversationHistory([userMessage]);
+        const assistantMessage: ConversationMessage | null = item.response ? {
+          id: `history-assistant-${item.id}`,
+          role: "assistant",
+          content: (item.response.summary as string | undefined) || (item.response._rawContent as string | undefined) || tr("askPage.responseReceived"),
+          timestamp: new Date(item.timestamp + 1),
+          country: item.country,
+          response: item.response as BureaucracyResponse,
+        } : null;
+        setConversationHistory(assistantMessage ? [userMessage, assistantMessage] : [userMessage]);
+        setLastSubmittedQuestion(item.fullQuestion);
         
-        toast.info("Loaded from history", {
-          description: "You can continue this conversation or ask a follow-up.",
+        toast.info(tr("askPage.loadedFromHistory"), {
+          description: tr("askPage.loadedFromHistoryBody"),
         });
       }
     }
-  }, [historyId, history]);
+  }, [historyId, history, tr]);
 
   const handleSubmit = async (question: string, file?: File, country?: string) => {
     // Validate that country is selected
@@ -164,9 +205,13 @@ function AskPageInner() {
     setIsLoading(true);
     setError(null);
     setLastCountry(country);
+    setLastSubmittedQuestion(question);
     setPrefill("");
     setBureaucracyResponse(null);
     setDocumentAnalysis(null);
+    setMissingContextDetails(null);
+    setMissingContextText("");
+    setTrackedProcessIds([]);
     setNeedsMoreInfo(false);
 
     // Generate unique ID for this question
@@ -310,11 +355,39 @@ function AskPageInner() {
       return;
     }
     setPrefill(followUpQuestion);
-    await handleSubmit(followUpQuestion, undefined, lastCountry);
+    await handleInputSubmit(followUpQuestion, undefined, lastCountry);
+  };
+
+  const handleMissingContextSubmit = async () => {
+    if (!missingContextDetails || !missingContextText.trim()) return;
+
+    const enrichedPrompt = [
+      "Please continue and refine the previous procedure answer with the missing context below.",
+      "",
+      `Original question: ${missingContextDetails.originalQuestion}`,
+      `Country: ${getCountryName(lastCountry)}`,
+      `Language: ${language}`,
+      "",
+      "Previous answer summary:",
+      missingContextDetails.response?.summary || missingContextDetails.response?._rawContent || "No structured summary available.",
+      "",
+      "Missing context requested:",
+      [...missingContextDetails.missingContext, ...missingContextDetails.followUpQuestions].map((item) => `- ${item}`).join("\n") || "- None listed",
+      "",
+      "User-provided context:",
+      missingContextText.trim(),
+      "",
+      "Return an updated, complete procedure answer using this extra context.",
+    ].join("\n");
+
+    const visiblePrompt = `${tr("askPage.contextSupplied")}\n${missingContextText.trim()}`;
+    setMissingContextDetails(null);
+    setMissingContextText("");
+    await handleInputSubmit(enrichedPrompt, undefined, lastCountry, visiblePrompt);
   };
 
   // Handle submitting from input (with conversation context)
-  const handleInputSubmit = async (question: string, file?: File, country?: string) => {
+  const handleInputSubmit = async (question: string, file?: File, country?: string, displayQuestion?: string) => {
     if (!country) {
       toast.error(tr("askPage.selectCountry"), {
         description: tr("askPage.selectCountryDescription"),
@@ -323,8 +396,8 @@ function AskPageInner() {
     }
 
     // Validate question before submitting
-    const validation = validateQuestion(question, country);
-    if (!validation.isValid) {
+    const validation = validateQuestion(displayQuestion || question, country);
+    if (!displayQuestion && !validation.isValid) {
       setValidationError(validation.missingInfo.join(" "));
       setValidationSuggestions(validation.suggestions);
       setError(validation.missingInfo[0] || "Please provide more details");
@@ -344,9 +417,13 @@ function AskPageInner() {
     setIsLoading(true);
     setError(null);
     setLastCountry(country);
+    setLastSubmittedQuestion(question);
     setPrefill("");
     setBureaucracyResponse(null);
     setDocumentAnalysis(null);
+    setMissingContextDetails(null);
+    setMissingContextText("");
+    setTrackedProcessIds([]);
 
     // Generate unique ID for this question
     const questionId = `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -356,12 +433,14 @@ function AskPageInner() {
     const userMessage: ConversationMessage = {
       id: questionId,
       role: "user",
-      content: question,
+      content: displayQuestion || question,
       timestamp: new Date(),
       country,
+      temporary: temporaryChat,
     };
 
     setConversationHistory(prev => [...prev, userMessage]);
+    setShowConversation(true);
 
     const countryName = getCountryName(country);
     
@@ -418,24 +497,36 @@ function AskPageInner() {
       const data = await res.json();
 
       if (data.response) {
+        const response = data.response as BureaucracyResponse;
         // Add assistant response to conversation
         const assistantMessage: ConversationMessage = {
           id: `a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: data.response.summary || data.response._rawContent || tr("askPage.responseReceived"),
+          content: response.summary || response._rawContent || tr("askPage.responseReceived"),
           timestamp: new Date(),
           country,
-          response: data.response,
+          response,
+          temporary: temporaryChat,
         };
 
         // Save to localStorage history
-        addQuestion(question, data.response, country, language, false);
+        addQuestion(question, response as unknown as Record<string, unknown>, country, language, false, { temporary: temporaryChat });
 
         setConversationHistory(prev => [...prev, assistantMessage]);
-        setBureaucracyResponse(data.response);
+        setBureaucracyResponse(response);
+
+        if (response.needsMoreContext || response.missingContext?.length || response.followUpQuestions?.length) {
+          setNeedsMoreInfo(true);
+          setMissingContextDetails({
+            originalQuestion: question,
+            response,
+            missingContext: response.missingContext ?? [],
+            followUpQuestions: response.followUpQuestions ?? [],
+          });
+        }
 
         // Update suggested follow-ups based on procedure type
-        const procedureName = data.response.procedureName?.toLowerCase() || '';
+        const procedureName = response.procedureName?.toLowerCase() || '';
         if (procedureName.includes('visa')) {
           setSuggestedFollowUps([...defaultFollowUps.visa, ...defaultFollowUps.default]);
         } else if (procedureName.includes('permit')) {
@@ -444,16 +535,11 @@ function AskPageInner() {
           setSuggestedFollowUps(defaultFollowUps.default);
         }
 
-        // Automatically switch to conversation view after first response
-        if (!showConversation && conversationHistory.length > 0) {
-          setShowConversation(true);
-        }
-
         toast.success(tr("askPage.detailedReady"), {
           id: loadingToast,
           description: tr("askPage.detailedInfoFor", {
             country: countryName,
-            procedure: data.response.procedureName,
+            procedure: response.procedureName,
           }),
         });
       } else if (data.error) {
@@ -472,13 +558,12 @@ function AskPageInner() {
     }
   };
 
-  // Auto-submit if a prefill came in via ?q=
+  // Prefill if a question came in via ?q=. History restores the full conversation above.
   useEffect(() => {
-    if (initialQ && !bureaucracyResponse && !documentAnalysis && !isLoading) {
-      handleSubmit(initialQ);
+    if (initialQ && !historyId) {
+      setPrefill(initialQ);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialQ]);
+  }, [initialQ, historyId]);
 
   const handleReset = () => {
     setBureaucracyResponse(null);
@@ -490,10 +575,23 @@ function AskPageInner() {
     setShowConversation(false);
     setCurrentQuestionId(null);
     setLoadedHistoryItem(null);
+    setMissingContextDetails(null);
+    setMissingContextText("");
+    setLastSubmittedQuestion("");
+    setTrackedProcessIds([]);
   };
 
   const toggleConversation = () => {
     setShowConversation(prev => !prev);
+  };
+
+  const handleTrackProcess = () => {
+    if (!bureaucracyResponse || temporaryChat) return;
+    const tracked = trackResponseAsProcess(lastSubmittedQuestion || bureaucracyResponse.procedureName, bureaucracyResponse, lastCountry);
+    setTrackedProcessIds(prev => [...prev, tracked.id]);
+    toast.success(tr("askPage.processTracked"), {
+      description: tracked.name,
+    });
   };
 
   return (
@@ -529,6 +627,23 @@ function AskPageInner() {
           )}
         </div>
       </motion.div>
+
+      {/* Temporary Chat Toggle */}
+      <Card className={temporaryChat ? "border-amber-400/50 bg-amber-50/70 dark:bg-amber-950/20" : "bg-muted/30"}>
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 font-medium">
+              <RefreshCw className="h-4 w-4 text-primary" />
+              {tr("askPage.temporaryChat")}
+              {temporaryChat && <Badge variant="secondary">{tr("askPage.notSaved")}</Badge>}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {tr("askPage.temporaryChatDescription")}
+            </p>
+          </div>
+          <Switch checked={temporaryChat} onCheckedChange={handleTemporaryChange} />
+        </CardContent>
+      </Card>
 
       {/* Conversation History Panel */}
       <AnimatePresence>
@@ -587,6 +702,11 @@ function AskPageInner() {
                         }`}>
                           {format(msg.timestamp, 'HH:mm')}
                         </span>
+                        {msg.temporary && (
+                          <Badge variant="outline" className="h-5 text-[10px]">
+                            {tr("askPage.notSaved")}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                       {msg.role === 'assistant' && msg.response && (
@@ -727,6 +847,70 @@ function AskPageInner() {
         )}
       </AnimatePresence>
 
+      {/* Missing Context Continuation */}
+      <AnimatePresence>
+        {missingContextDetails && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  {tr("askPage.missingContextTitle")}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {tr("askPage.missingContextBody")}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(missingContextDetails.missingContext.length > 0 || missingContextDetails.followUpQuestions.length > 0) && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {missingContextDetails.missingContext.length > 0 && (
+                      <div className="rounded-lg border bg-background/70 p-3">
+                        <p className="text-sm font-medium mb-2">{tr("askPage.missingFields")}</p>
+                        <ul className="space-y-1 text-sm text-muted-foreground">
+                          {missingContextDetails.missingContext.map((item) => (
+                            <li key={item}>- {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {missingContextDetails.followUpQuestions.length > 0 && (
+                      <div className="rounded-lg border bg-background/70 p-3">
+                        <p className="text-sm font-medium mb-2">{tr("askPage.clarifyingQuestions")}</p>
+                        <ul className="space-y-1 text-sm text-muted-foreground">
+                          {missingContextDetails.followUpQuestions.map((item) => (
+                            <li key={item}>- {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <Textarea
+                  value={missingContextText}
+                  onChange={(event) => setMissingContextText(event.target.value)}
+                  placeholder={tr("askPage.contextPlaceholder")}
+                  className="min-h-[110px]"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setMissingContextDetails(null)}>
+                    {tr("common.close")}
+                  </Button>
+                  <Button onClick={handleMissingContextSubmit} disabled={!missingContextText.trim()} className="gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    {tr("askPage.sendWithContext")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Document Analysis Display */}
       <AnimatePresence>
         {documentAnalysis && !isLoading && (
@@ -768,6 +952,17 @@ function AskPageInner() {
                 )}
               </div>
               <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTrackProcess}
+                  disabled={temporaryChat || trackedProcessIds.length > 0}
+                  className="gap-2"
+                  title={temporaryChat ? tr("askPage.trackingDisabledTemporary") : undefined}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  {trackedProcessIds.length > 0 ? tr("askPage.trackedProcess") : tr("askPage.trackProcess")}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

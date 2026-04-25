@@ -136,6 +136,13 @@ export const bureaucracyResponseSchema = z.object({
   
   // Additional notes
   additionalNotes: z.string().optional().describe("Important notes, tips, or additional information"),
+
+  // Trust and continuation signals
+  confidenceScore: z.number().min(0).max(1).optional().describe("Model confidence from 0 to 1 based on source quality and completeness"),
+  confidenceReasons: z.array(z.string()).optional().describe("Short reasons explaining the confidence score"),
+  needsMoreContext: z.boolean().optional().describe("Whether the answer needs more user context before it can be reliable"),
+  missingContext: z.array(z.string()).optional().describe("Specific facts or fields missing from the user's question"),
+  followUpQuestions: z.array(z.string()).optional().describe("Clarifying questions the user can answer to improve the response"),
   
   // Scope clarification
   scope: z.object({
