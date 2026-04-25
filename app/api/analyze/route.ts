@@ -2,14 +2,18 @@ import { generateText, Output } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import {
   SupportedCountryInputSchema,
+  SupportedLanguageInputSchema,
   normalizeDocumentType,
 } from '@/lib/ai/request-schemas';
+import { normalizeRequestText } from '@/lib/ai/request-utils';
 import {
   buildDocumentCitations,
+  extractOfficialWebSources,
   pickOfficialSourceUrl,
 } from '@/lib/ai/source-citations';
 import { getGovernmentDomains } from '@/lib/ai/gov-web-search';
 import { getPromptCacheOptions } from '@/lib/ai/prompt-cache';
+import { getCachedValue, setCachedValue } from '@/lib/ai/search-context-cache';
 import { findCachedDocumentRisk, isDemoMode } from '@/lib/cached-answers';
 import { extractTextFromFile, extractTextFromUrl } from '@/lib/extract';
 import { buildAnalyzeSystemPrompt } from '@/lib/prompts';
@@ -35,6 +39,7 @@ const analyzeRequestSchema = z
       .transform(normalizeDocumentType)
       .default('contract'),
     country: SupportedCountryInputSchema.default('DE'),
+    language: SupportedLanguageInputSchema.default('en'),
   });
 
 type ParsedAnalyzeRequest = z.infer<typeof analyzeRequestSchema> & {
@@ -52,6 +57,7 @@ async function parseAnalyzeRequest(req: Request): Promise<ParsedAnalyzeRequest> 
       file_url: form.get('file_url') || undefined,
       document_type: form.get('document_type') || 'contract',
       country: form.get('country') || 'DE',
+      language: form.get('language') || 'en',
     });
     const file = form.get('file');
 
@@ -118,11 +124,31 @@ export async function POST(req: Request) {
     let webSources: unknown[] = [];
 
     if (useWebSearch) {
-      const searchResult = await generateText({
+      const cacheKey = [
+        'official-doc',
+        input.country,
+        input.language,
+        input.document_type,
+        normalizeRequestText(input.question || ''),
+      ].join(':');
+      const cachedWebContext = getCachedValue<{
+        context: string;
+        officialSources: Array<{ title: string; url: string }>;
+      }>(cacheKey);
+
+      if (cachedWebContext) {
+        webContext = cachedWebContext.context;
+        webSources = cachedWebContext.officialSources;
+      } else {
+        const searchResult = await generateText({
         model: openai(ANALYZE_MODEL),
         system: `You collect official or public-service context for FormWise document reviews.
 Only use web search results that are directly relevant to the user's country and document type.
-Summarize grounded facts in 3-5 short bullet sentences.
+Only summarize facts supported by official or public-service sources from these domains:
+${preferredDomains.join(', ')}
+If you cannot find relevant official or public-service sources, respond exactly with:
+NO_OFFICIAL_CONTEXT
+Summarize grounded facts in 3-5 short bullet sentences in the user's request language.
 Do not include URLs in the text.`,
         prompt: `Country: ${COUNTRY_NAMES[input.country] || input.country}
 Document type: ${input.document_type}
@@ -137,6 +163,9 @@ Search for official or public-service guidance that helps interpret this documen
               type: 'approximate',
               country: input.country,
             },
+            filters: {
+              allowedDomains: preferredDomains,
+            },
           }),
         },
         toolChoice: { type: 'tool', toolName: 'web_search' } as const,
@@ -144,23 +173,33 @@ Search for official or public-service guidance that helps interpret this documen
         providerOptions: {
           openai: {
             store: false,
-            promptCacheKey: `${promptCache.promptCacheKey}:w`,
+            promptCacheKey: `${promptCache.promptCacheKey}-w`.slice(0, 64),
             promptCacheRetention: promptCache.promptCacheRetention,
           },
         },
-      });
+        });
 
-      if (searchResult.text.trim().length > 0) {
-        webContext = searchResult.text.trim();
+        const officialSources = extractOfficialWebSources(
+          searchResult.sources,
+          preferredDomains,
+        );
+        webSources = officialSources;
+        webContext =
+          officialSources.length > 0 && searchResult.text.trim() !== 'NO_OFFICIAL_CONTEXT'
+            ? searchResult.text.trim()
+            : 'No official or public-service web context was gathered for this review.';
+
+        setCachedValue(cacheKey, {
+          context: webContext,
+          officialSources,
+        });
       }
-
-      webSources = searchResult.sources;
     }
 
     const result = await generateText({
       model: openai(ANALYZE_MODEL),
       output: Output.object({ schema: DocumentRiskModelSchema }),
-      system: buildAnalyzeSystemPrompt(input.country, input.document_type),
+      system: buildAnalyzeSystemPrompt(input.country, input.document_type, input.language),
       prompt: `Review focus: ${input.question || 'General document review'}
 Document type: ${input.document_type}
 Country jurisdiction: ${COUNTRY_NAMES[input.country] || input.country}

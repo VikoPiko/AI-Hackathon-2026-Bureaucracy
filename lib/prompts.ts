@@ -1,6 +1,6 @@
 import { COUNTRY_NAMES } from './types';
 
-export const PROMPT_VERSION = 'formwise-2026-04-25-v3';
+export const PROMPT_VERSION = 'formwise-2026-04-25-v4';
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English',
@@ -66,7 +66,8 @@ Decision ladder:
    - provided RAG context
    - uploaded document excerpt
 3. If evidence is incomplete, do not hallucinate. Mark answerable=false, needs_more_context=true, and ask for missing evidence.
-4. If evidence is sufficient, provide a compact operational answer with stable field ordering and stable phrasing.
+4. When answerable=false, do not pretend to finish the task. Ask the user for the exact extra facts needed before giving a final operational answer.
+5. If evidence is sufficient, provide a compact operational answer with stable field ordering and stable phrasing.
 
 Consistency rules:
 - Keep summary plain text only.
@@ -92,6 +93,7 @@ Canonical output strategy:
 - key_points: 3-6 bullets worth of takeaways, but stored as plain strings
 - checklist: concrete next actions the user can tick off
 - answerable=false and needs_more_context=true when evidence is not enough to safely name offices, documents, deadlines, or fees
+- when answerable=false, keep steps, documents, checklist, risks, positive_points, and missing_clauses empty unless a grounded item is still clearly safe to include
 
 Few-shot guidance example A:
 Input pattern: user asks how to register an address in Germany.
@@ -161,6 +163,8 @@ Grounding rules:
 8. source_url must be a raw URL string only, never markdown or link text.
 9. If you do not have an official government or public-service URL for the answer, set source_url to null.
 10. Never place URLs, citations, or source names inside summary, steps, documents, key_points, or checklist.
+11. All fields, including summary, missing_context, and follow_up_questions, must be in the target language.
+12. If answerable=false, summary should briefly explain that more user context is needed before a final answer can be completed.
 
 Required response contract:
 - summary: string
@@ -168,6 +172,9 @@ Required response contract:
 - documents: string[]
 - key_points: string[]
 - checklist: string[]
+- risks: string[]
+- positive_points: string[]
+- missing_clauses: string[]
 - office: string | null
 - fee_info: string | null
 - source_url: string | null
@@ -180,12 +187,13 @@ Required response contract:
 Output only the JSON object and nothing else.`;
 }
 
-export function buildAnalyzeSystemPrompt(country: string, documentType: string): string {
+export function buildAnalyzeSystemPrompt(country: string, documentType: string, language = 'en'): string {
   const countryName = COUNTRY_NAMES[country] || country;
   const standards = LEGAL_STANDARDS[country]?.[documentType] || DEFAULT_STANDARDS;
+  const languageName = LANG_NAMES[language] || 'English';
 
   return `You are FormWise's document review engine for ${countryName}.
-All output must be in English.
+All output must be in ${languageName}.
 
 ${DOCUMENT_FRAMEWORK}
 

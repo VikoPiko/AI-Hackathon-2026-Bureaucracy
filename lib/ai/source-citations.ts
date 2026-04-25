@@ -36,6 +36,45 @@ function matchesPreferredDomain(url: string | null, preferredDomains: string[]):
   }
 }
 
+export function isOfficialSourceUrl(
+  url: string | null | undefined,
+  preferredDomains: string[],
+): boolean {
+  return matchesPreferredDomain(normalizeUrl(url), preferredDomains);
+}
+
+export function extractOfficialWebSources(
+  sources: unknown[],
+  preferredDomains: string[],
+): Array<{ title: string; url: string }> {
+  const official = sources.flatMap((source) => {
+    if (!source || typeof source !== 'object') {
+      return [];
+    }
+
+    const candidate = source as WebSourceLike;
+    const url = normalizeUrl(candidate.url);
+    if (!url || !matchesPreferredDomain(url, preferredDomains)) {
+      return [];
+    }
+
+    return [{
+      title: candidate.title || url,
+      url,
+    }];
+  });
+
+  const seen = new Set<string>();
+  return official.filter((item) => {
+    const key = `${item.title}|${item.url}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 function dedupeSources(items: SourceCitation[]): SourceCitation[] {
   const seen = new Set<string>();
 

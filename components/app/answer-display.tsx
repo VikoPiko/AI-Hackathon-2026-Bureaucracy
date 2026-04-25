@@ -19,6 +19,8 @@ import {
   FileText,
   MapPin,
   Phone,
+  ShieldAlert,
+  ThumbsUp,
 } from "lucide-react"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
 import {
@@ -152,46 +154,6 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
         </Card>
       </motion.div>
 
-      {response.needsMoreContext && (
-        <motion.div variants={itemVariants}>
-          <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-medium">More context would make this answer stronger</h4>
-                    <p className="text-muted-foreground text-sm mt-1">
-                      Gather the items below and ask again for a more complete answer.
-                    </p>
-                  </div>
-                  {response.missingContext && response.missingContext.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium mb-2">Missing context</h5>
-                      <ul className="space-y-1 text-sm text-muted-foreground">
-                        {response.missingContext.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {response.followUpQuestions && response.followUpQuestions.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium mb-2">Follow-up questions</h5>
-                      <ul className="space-y-1 text-sm text-muted-foreground">
-                        {response.followUpQuestions.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
       {response.checklist && response.checklist.length > 0 && (
         <motion.div variants={itemVariants}>
           <Card>
@@ -215,6 +177,79 @@ export function AnswerDisplay({ question = "Procedure guidance", response }: Ans
           </Card>
         </motion.div>
       )}
+
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Estimated Process Length
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{response.totalEstimatedTime}</p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-primary" />
+                Potential Risks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {response.risks && response.risks.length > 0 ? response.risks.map((risk) => (
+                <div key={risk} className="rounded-lg border p-3 text-sm text-muted-foreground">
+                  {risk}
+                </div>
+              )) : (
+                <p className="text-sm text-muted-foreground">No major risks were identified from the available context.</p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ThumbsUp className="h-5 w-5 text-primary" />
+                Positive Points
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {response.positivePoints && response.positivePoints.length > 0 ? response.positivePoints.map((item) => (
+                <div key={item} className="rounded-lg border p-3 text-sm text-muted-foreground">
+                  {item}
+                </div>
+              )) : (
+                <p className="text-sm text-muted-foreground">No strong positive factors were confirmed from the available context.</p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Missing Clauses</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {response.missingClauses && response.missingClauses.length > 0 ? response.missingClauses.map((item) => (
+              <div key={item} className="rounded-lg border p-3 text-sm text-muted-foreground">
+                {item}
+              </div>
+            )) : (
+              <p className="text-sm text-muted-foreground">No major missing confirmations were identified.</p>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       <motion.div variants={itemVariants}>
         <Card>

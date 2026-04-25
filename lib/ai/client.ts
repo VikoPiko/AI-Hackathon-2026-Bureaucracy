@@ -1,4 +1,5 @@
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
+import { inferLanguageFromText } from "@/lib/ai/request-utils"
 import {
   saveDocumentHistoryEntry,
   saveHistoryEntry,
@@ -34,6 +35,10 @@ type PartialProcedureAnswer = Partial<ProcedureAnswer> & {
 
 function hasText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0
+}
+
+export function inferLanguage(question: string): string {
+  return inferLanguageFromText(question)
 }
 
 export function inferCountry(question: string): string {
@@ -155,6 +160,9 @@ export function mapProcedureAnswerToUi(
     })),
     keyPoints: answer.key_points || [],
     checklist: answer.checklist || [],
+    risks: answer.risks || [],
+    positivePoints: answer.positive_points || [],
+    missingClauses: answer.missing_clauses || [],
     officeInfo: {
       name: officeName,
       website: hasText(answer.source_url) ? answer.source_url : undefined,
@@ -168,6 +176,8 @@ export function mapProcedureAnswerToUi(
       answer.answerable === false
         ? "This answer still needs more context before you should rely on it."
         : undefined,
+    confidence: answer.confidence,
+    answerable: answer.answerable,
     needsMoreContext: answer.needs_more_context,
     missingContext: answer.missing_context || [],
     followUpQuestions: answer.follow_up_questions || [],
@@ -182,11 +192,13 @@ export function mapProcedureAnswerToUi(
 }
 
 function buildRequestBody(options: AskQuestionOptions, resolvedCountry: string): BodyInit {
+  const resolvedLanguage = options.language ?? inferLanguage(options.question)
+
   if (!options.file) {
     return JSON.stringify({
       question: options.question,
       country: resolvedCountry,
-      language: options.language || "en",
+      language: resolvedLanguage,
       stream: options.stream ?? false,
     })
   }
@@ -194,7 +206,7 @@ function buildRequestBody(options: AskQuestionOptions, resolvedCountry: string):
   const formData = new FormData()
   formData.set("question", options.question)
   formData.set("country", resolvedCountry)
-  formData.set("language", options.language || "en")
+  formData.set("language", resolvedLanguage)
   formData.set("stream", String(options.stream ?? false))
   formData.set("file", options.file)
   return formData
@@ -225,15 +237,25 @@ async function saveSuccessfulHistory(
 export async function askQuestion({
   question,
   country,
-  language = "en",
+  language,
   stream = false,
   file,
 }: AskQuestionOptions): Promise<BureaucracyResponse> {
   const resolvedCountry = country || inferCountry(question)
+  const resolvedLanguage = language ?? inferLanguage(question)
   const res = await fetch("/api/chat", {
     method: "POST",
-    headers: buildRequestHeaders({ question, country: resolvedCountry, language, stream, file }),
-    body: buildRequestBody({ question, country: resolvedCountry, language, stream, file }, resolvedCountry),
+    headers: buildRequestHeaders({
+      question,
+      country: resolvedCountry,
+      language: resolvedLanguage,
+      stream,
+      file,
+    }),
+    body: buildRequestBody(
+      { question, country: resolvedCountry, language: resolvedLanguage, stream, file },
+      resolvedCountry,
+    ),
   })
 
   if (!res.ok) {
@@ -248,22 +270,23 @@ export async function askQuestion({
 export async function askQuestionStream({
   question,
   country,
-  language = "en",
+  language,
   file,
   onStatus,
   onPartial,
 }: AskQuestionStreamOptions): Promise<BureaucracyResponse> {
   const resolvedCountry = country || inferCountry(question)
+  const resolvedLanguage = language ?? inferLanguage(question)
   const res = await fetch("/api/chat", {
     method: "POST",
     body: buildRequestBody(
-      { question, country: resolvedCountry, language, stream: true, file },
+      { question, country: resolvedCountry, language: resolvedLanguage, stream: true, file },
       resolvedCountry,
     ),
     headers: buildRequestHeaders({
       question,
       country: resolvedCountry,
-      language,
+      language: resolvedLanguage,
       stream: true,
       file,
     }),
@@ -353,9 +376,11 @@ export async function analyzeDocument({
 }: AnalyzeDocumentOptions): Promise<DocumentRisk> {
   const resolvedCountry = country || inferCountry(question)
   const resolvedType = documentType || inferDocumentType(question, file)
+  const resolvedLanguage = inferLanguage(question)
   const formData = new FormData()
   formData.set("question", question)
   formData.set("country", resolvedCountry)
+  formData.set("language", resolvedLanguage)
   formData.set("document_type", resolvedType)
   formData.set("file", file)
 
