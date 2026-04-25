@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useMemo } from "react"
 import { motion, useInView, useSpring, useTransform } from "motion/react"
 import { Card, CardContent } from "@/components/ui/card"
-import { FileText, CheckCircle2, Clock, TrendingUp } from "lucide-react"
+import { FileText, CheckCircle2, Clock, TrendingUp, MessageSquare } from "lucide-react"
+import { useQuestionHistory } from "@/hooks/use-question-history"
 
 interface Stat {
   label: string
@@ -14,42 +15,6 @@ interface Stat {
   bgColor: string
   suffix?: string
 }
-
-const stats: Stat[] = [
-  {
-    label: "Documents Analyzed",
-    value: 12,
-    icon: FileText,
-    description: "Total analyses",
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-  },
-  {
-    label: "Procedures Tracked",
-    value: 3,
-    icon: Clock,
-    description: "In progress",
-    color: "text-amber-500",
-    bgColor: "bg-amber-500/10",
-  },
-  {
-    label: "Completed",
-    value: 5,
-    icon: CheckCircle2,
-    description: "All time",
-    color: "text-accent",
-    bgColor: "bg-accent/10",
-  },
-  {
-    label: "Time Saved",
-    value: 8,
-    icon: TrendingUp,
-    description: "Hours estimated",
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
-    suffix: "h",
-  },
-]
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -98,6 +63,84 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
 }
 
 export function StatsOverview() {
+  const { history, isLoaded, getStats } = useQuestionHistory()
+  
+  // Calculate stats from real data
+  const stats = useMemo(() => {
+    if (!isLoaded) {
+      return {
+        totalDocuments: 0,
+        totalQuestions: 0,
+        completedQuestions: 0,
+        countriesUsed: {}
+      }
+    }
+    return getStats()
+  }, [history, isLoaded, getStats])
+
+  // Estimate time saved (roughly 30 min per question compared to research)
+  const timeSaved = stats.totalQuestions * 0.5
+
+  const statItems: Stat[] = [
+    {
+      label: "Documents Analyzed",
+      value: stats.totalDocuments,
+      icon: FileText,
+      description: "Total document analyses",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
+    },
+    {
+      label: "Questions Asked",
+      value: stats.totalQuestions,
+      icon: MessageSquare,
+      description: "Total questions",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
+    },
+    {
+      label: "Completed",
+      value: stats.completedQuestions,
+      icon: CheckCircle2,
+      description: "Successfully answered",
+      color: "text-accent",
+      bgColor: "bg-accent/10",
+    },
+    {
+      label: "Time Saved",
+      value: Math.round(timeSaved * 10) / 10,
+      icon: TrendingUp,
+      description: "Hours estimated",
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
+      suffix: "h",
+    },
+  ]
+
+  if (!isLoaded) {
+    return (
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-2">
+                <div className="h-4 w-24 rounded bg-muted animate-pulse" />
+                <div className="h-8 w-16 rounded bg-muted animate-pulse" />
+                <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+              </div>
+              <div className="h-12 w-12 rounded-xl bg-muted animate-pulse" />
+            </div>
+          </Card>
+        ))}
+      </motion.div>
+    )
+  }
+
   return (
     <motion.div
       variants={containerVariants}
@@ -105,7 +148,7 @@ export function StatsOverview() {
       animate="visible"
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
     >
-      {stats.map((stat, index) => (
+      {statItems.map((stat, index) => (
         <motion.div key={stat.label} variants={itemVariants}>
           <motion.div
             whileHover={{ scale: 1.02, y: -4 }}
@@ -124,6 +167,7 @@ export function StatsOverview() {
                       {stat.description}
                     </p>
                   </div>
+
                   <motion.div 
                     className={`h-12 w-12 rounded-xl ${stat.bgColor} flex items-center justify-center ${stat.color}`}
                     whileHover={{ rotate: 12, scale: 1.1 }}
@@ -132,6 +176,7 @@ export function StatsOverview() {
                     <stat.icon className="h-6 w-6" />
                   </motion.div>
                 </div>
+
               </CardContent>
               
               {/* Hover gradient overlay */}
@@ -152,8 +197,10 @@ export function StatsOverview() {
                 transition={{ delay: 0.3 + index * 0.1, duration: 0.6, ease: "easeOut" }}
               />
             </Card>
+
           </motion.div>
         </motion.div>
+
       ))}
     </motion.div>
   )

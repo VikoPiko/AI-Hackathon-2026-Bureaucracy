@@ -1,240 +1,970 @@
-import type { Language } from '@/lib/types';
+import type { Language } from "@/lib/types";
+
+export const DEFAULT_LANGUAGE: Language = "en";
 
 export const LANGUAGE_NAMES: Record<Language, string> = {
-  en: 'English',
-  de: 'German',
-  nl: 'Dutch',
-  pt: 'Portuguese',
-  es: 'Spanish',
-  fr: 'French',
-  bg: 'Bulgarian',
-  tr: 'Turkish',
+  bg: "Български",
+  en: "English",
+  de: "Deutsch",
 };
 
-type MessageKey =
-  | 'chatNoSpecificInfo'
-  | 'compareInsufficientContext'
-  | 'journeyLimitedInfo'
-  | 'journeyMissingCoverage'
-  | 'journeyVerifyRequirements'
-  | 'compareExcludedCountry'
-  | 'compareMissingStructuredCountry'
-  | 'compareNoGroundedOutput'
-  | 'journeyMissingPhases'
-  | 'journeyLimitedCoverage'
-  | 'journeyNoStrongGrounding';
+type TranslationValue = string | TranslationTree;
+type TranslationTree = {
+  [key: string]: TranslationValue;
+};
 
-type MessageBuilder = (params?: Record<string, string>) => string;
-
-const messages: Record<Language, Record<MessageKey, MessageBuilder>> = {
+export const TRANSLATIONS: Record<Language, TranslationTree> = {
   en: {
-    chatNoSpecificInfo: ({ country = 'this country' } = {}) =>
-      `I don't have specific information about this procedure yet. Please check the official government website for ${country}.`,
-    compareInsufficientContext: () =>
-      'I do not have enough official source context to compare these countries reliably yet. Please narrow the question or verify on official government websites.',
-    journeyLimitedInfo: ({ country = 'this country' } = {}) =>
-      `Limited official procedure information is currently available for ${country}.`,
-    journeyMissingCoverage: ({ areas = 'the relevant procedure areas' } = {}) =>
-      `Missing grounded coverage for: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Verify visa, registration, and permit requirements on official government websites before acting.',
-    compareExcludedCountry: ({ code = 'This country' } = {}) =>
-      `${code} was excluded because official source coverage was too weak for a reliable comparison.`,
-    compareMissingStructuredCountry: ({ code = 'This country' } = {}) =>
-      `${code} had source coverage but did not produce a sufficiently grounded structured comparison entry.`,
-    compareNoGroundedOutput: () =>
-      'I do not have enough grounded country-specific output to compare these options reliably.',
-    journeyMissingPhases: ({ phases = 'some phases' } = {}) =>
-      `Some expected roadmap phases were missing from the model output and were reinserted as empty placeholders: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'some areas' } = {}) =>
-      `Some parts of this plan rely on limited official source coverage. Double-check these areas on official sources: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'No journey areas were strongly grounded in official source context.',
-  },
-  de: {
-    chatNoSpecificInfo: ({ country = 'dieses Land' } = {}) =>
-      `Ich habe noch keine konkreten Informationen zu diesem Verfahren. Bitte pruefen Sie die offizielle Website von ${country}.`,
-    compareInsufficientContext: () =>
-      'Ich habe noch nicht genug offiziellen Quellenkontext, um diese Laender verlaesslich zu vergleichen. Bitte praezisieren Sie die Frage oder pruefen Sie offizielle Regierungswebsites.',
-    journeyLimitedInfo: ({ country = 'dieses Land' } = {}) =>
-      `Derzeit sind nur begrenzte offizielle Verfahrensinformationen fuer ${country} verfuegbar.`,
-    journeyMissingCoverage: ({ areas = 'relevante Bereiche' } = {}) =>
-      `Fehlende belastbare Abdeckung fuer: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Pruefen Sie Visum-, Melde- und Genehmigungsanforderungen auf offiziellen Regierungswebsites, bevor Sie handeln.',
-    compareExcludedCountry: ({ code = 'Dieses Land' } = {}) =>
-      `${code} wurde ausgeschlossen, weil die offizielle Quellenlage fuer einen verlaesslichen Vergleich zu schwach war.`,
-    compareMissingStructuredCountry: ({ code = 'Dieses Land' } = {}) =>
-      `${code} hatte Quellenabdeckung, lieferte aber keinen ausreichend belastbaren strukturierten Vergleichseintrag.`,
-    compareNoGroundedOutput: () =>
-      'Ich habe nicht genug belastbare laenderspezifische Ausgaben, um diese Optionen verlaesslich zu vergleichen.',
-    journeyMissingPhases: ({ phases = 'einige Phasen' } = {}) =>
-      `Einige erwartete Roadmap-Phasen fehlten in der Modellausgabe und wurden als leere Platzhalter wieder eingefuegt: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'einige Bereiche' } = {}) =>
-      `Einige Teile dieses Plans beruhen auf begrenzter offizieller Quellenabdeckung. Pruefen Sie diese Bereiche in offiziellen Quellen: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'Keine Bereiche der Umzugsplanung waren stark in offiziellem Quellenkontext verankert.',
-  },
-  nl: {
-    chatNoSpecificInfo: ({ country = 'dit land' } = {}) =>
-      `Ik heb nog geen specifieke informatie over deze procedure. Controleer de officiele overheidswebsite voor ${country}.`,
-    compareInsufficientContext: () =>
-      'Ik heb nog niet genoeg officiele broncontext om deze landen betrouwbaar te vergelijken. Maak de vraag specifieker of controleer officiele overheidswebsites.',
-    journeyLimitedInfo: ({ country = 'dit land' } = {}) =>
-      `Er is momenteel beperkte officiele procedure-informatie beschikbaar voor ${country}.`,
-    journeyMissingCoverage: ({ areas = 'relevante onderdelen' } = {}) =>
-      `Ontbrekende onderbouwde dekking voor: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Controleer visum-, registratie- en vergunningsvereisten op officiele overheidswebsites voordat je handelt.',
-    compareExcludedCountry: ({ code = 'Dit land' } = {}) =>
-      `${code} is uitgesloten omdat de officiele brondekking te zwak was voor een betrouwbare vergelijking.`,
-    compareMissingStructuredCountry: ({ code = 'Dit land' } = {}) =>
-      `${code} had brondekking, maar leverde geen voldoende onderbouwde gestructureerde vergelijking op.`,
-    compareNoGroundedOutput: () =>
-      'Ik heb niet genoeg onderbouwde landspecifieke output om deze opties betrouwbaar te vergelijken.',
-    journeyMissingPhases: ({ phases = 'enkele fasen' } = {}) =>
-      `Sommige verwachte roadmap-fasen ontbraken in de modeluitvoer en zijn opnieuw ingevoegd als lege placeholders: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'enkele onderdelen' } = {}) =>
-      `Sommige delen van dit plan steunen op beperkte officiele brondekking. Controleer deze onderdelen in officiele bronnen: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'Geen onderdelen van het verhuisplan waren sterk onderbouwd met officiele broncontext.',
-  },
-  pt: {
-    chatNoSpecificInfo: ({ country = 'este pais' } = {}) =>
-      `Ainda nao tenho informacoes especificas sobre este procedimento. Verifique o site oficial do governo de ${country}.`,
-    compareInsufficientContext: () =>
-      'Ainda nao tenho contexto oficial suficiente para comparar estes paises de forma fiavel. Restrinja a pergunta ou verifique sites oficiais do governo.',
-    journeyLimitedInfo: ({ country = 'este pais' } = {}) =>
-      `As informacoes oficiais sobre procedimentos para ${country} estao atualmente limitadas.`,
-    journeyMissingCoverage: ({ areas = 'as areas relevantes' } = {}) =>
-      `Cobertura fundamentada ausente para: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Verifique os requisitos de visto, registo e autorizacao em sites oficiais do governo antes de agir.',
-    compareExcludedCountry: ({ code = 'Este pais' } = {}) =>
-      `${code} foi excluido porque a cobertura de fontes oficiais era demasiado fraca para uma comparacao fiavel.`,
-    compareMissingStructuredCountry: ({ code = 'Este pais' } = {}) =>
-      `${code} tinha cobertura de fontes, mas nao produziu uma entrada estruturada suficientemente fundamentada.`,
-    compareNoGroundedOutput: () =>
-      'Nao tenho saida especifica por pais suficientemente fundamentada para comparar estas opcoes de forma fiavel.',
-    journeyMissingPhases: ({ phases = 'algumas fases' } = {}) =>
-      `Algumas fases esperadas do plano estavam ausentes na resposta do modelo e foram reinseridas como marcadores vazios: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'algumas areas' } = {}) =>
-      `Algumas partes deste plano dependem de cobertura limitada de fontes oficiais. Confirme estas areas em fontes oficiais: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'Nenhuma area do plano de mudanca estava fortemente fundamentada em contexto oficial.',
-  },
-  es: {
-    chatNoSpecificInfo: ({ country = 'este pais' } = {}) =>
-      `Todavia no tengo informacion especifica sobre este procedimiento. Consulta el sitio web oficial del gobierno de ${country}.`,
-    compareInsufficientContext: () =>
-      'Todavia no tengo suficiente contexto de fuentes oficiales para comparar estos paises de forma fiable. Acota la pregunta o verifica en sitios web oficiales del gobierno.',
-    journeyLimitedInfo: ({ country = 'este pais' } = {}) =>
-      `Actualmente hay informacion oficial limitada sobre procedimientos para ${country}.`,
-    journeyMissingCoverage: ({ areas = 'las areas relevantes' } = {}) =>
-      `Falta cobertura fundamentada para: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Verifica los requisitos de visado, registro y permisos en sitios web oficiales del gobierno antes de actuar.',
-    compareExcludedCountry: ({ code = 'Este pais' } = {}) =>
-      `${code} fue excluido porque la cobertura de fuentes oficiales era demasiado debil para una comparacion fiable.`,
-    compareMissingStructuredCountry: ({ code = 'Este pais' } = {}) =>
-      `${code} tenia cobertura de fuentes, pero no produjo una entrada estructurada suficientemente fundamentada.`,
-    compareNoGroundedOutput: () =>
-      'No tengo suficiente salida especifica por pais y bien fundamentada para comparar estas opciones con fiabilidad.',
-    journeyMissingPhases: ({ phases = 'algunas fases' } = {}) =>
-      `Faltaban algunas fases esperadas de la hoja de ruta en la salida del modelo y se volvieron a insertar como marcadores vacios: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'algunas areas' } = {}) =>
-      `Algunas partes de este plan dependen de una cobertura limitada de fuentes oficiales. Verifica estas areas en fuentes oficiales: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'Ninguna area del plan de reubicacion estaba fuertemente fundamentada en contexto oficial.',
-  },
-  fr: {
-    chatNoSpecificInfo: ({ country = 'ce pays' } = {}) =>
-      `Je n'ai pas encore d'informations specifiques sur cette procedure. Veuillez consulter le site officiel du gouvernement de ${country}.`,
-    compareInsufficientContext: () =>
-      `Je n'ai pas encore assez de contexte provenant de sources officielles pour comparer ces pays de maniere fiable. Precisez la question ou verifiez les sites officiels du gouvernement.`,
-    journeyLimitedInfo: ({ country = 'ce pays' } = {}) =>
-      `Les informations officielles sur les procedures pour ${country} sont actuellement limitees.`,
-    journeyMissingCoverage: ({ areas = 'les domaines pertinents' } = {}) =>
-      `Couverture etayee manquante pour : ${areas}.`,
-    journeyVerifyRequirements: () =>
-      `Verifiez les exigences en matiere de visa, d'enregistrement et d'autorisations sur les sites officiels du gouvernement avant d'agir.`,
-    compareExcludedCountry: ({ code = 'Ce pays' } = {}) =>
-      `${code} a ete exclu car la couverture des sources officielles etait trop faible pour une comparaison fiable.`,
-    compareMissingStructuredCountry: ({ code = 'Ce pays' } = {}) =>
-      `${code} disposait de sources, mais n'a pas produit une entree de comparaison structuree suffisamment etayee.`,
-    compareNoGroundedOutput: () =>
-      `Je n'ai pas assez de contenu specifique aux pays et suffisamment etaye pour comparer ces options de maniere fiable.`,
-    journeyMissingPhases: ({ phases = 'certaines phases' } = {}) =>
-      `Certaines phases attendues de la feuille de route manquaient dans la sortie du modele et ont ete reinserees comme espaces reserves vides : ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'certains domaines' } = {}) =>
-      `Certaines parties de ce plan reposent sur une couverture limitee de sources officielles. Verifiez ces domaines dans des sources officielles : ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      `Aucun domaine du plan de relocalisation n'etait fortement etaye par un contexte officiel.`,
+    language: {
+      label: "Language",
+      change: "Change language",
+      english: "English",
+      bulgarian: "Bulgarian",
+      german: "German",
+    },
+    nav: {
+      dashboard: "Dashboard",
+      ask: "Ask",
+      browse: "Browse",
+      history: "History",
+    },
+    common: {
+      loading: "Loading...",
+      close: "Close",
+      clear: "Clear",
+      search: "Search",
+      email: "Email",
+      password: "Password",
+      fullName: "Full Name",
+      noResults: "No results found",
+      tryAgain: "Try again",
+      getStarted: "Get started",
+      createAccount: "Create Account",
+      logIn: "Log in",
+      signUp: "Sign up",
+      viewAll: "View all",
+      all: "All",
+      questions: "Questions",
+      documents: "Documents",
+      completed: "Completed",
+      inProgress: "In Progress",
+      waiting: "Waiting",
+      submitted: "Submitted",
+      pending: "Pending",
+      missing: "Missing",
+    },
+    landing: {
+      trustBadges: {
+        secure: "Secure & Private",
+        instant: "Instant Analysis",
+        users: "10k+ Users",
+      },
+      hero: {
+        badge: "AI-powered guidance for any process",
+        titlePrefix: "Navigate bureaucracy",
+        titleHighlight: "without the headache",
+        subtitle:
+          "Upload documents, ask questions, and get step-by-step guidance through any administrative process. From visa applications to business permits.",
+        tryFree: "Try it free",
+        seeHow: "See how it works",
+        trust: "No credit card required. 1 free analysis to get started.",
+        docLabel: "Document",
+        docValue: "Analyzed",
+        stepLabel: "Step 3 of 5",
+        stepValue: "Completed",
+      },
+      demo: {
+        title: "Try it now",
+        subtitle:
+          "Ask any question about bureaucratic procedures and see how FormWise can help.",
+        placeholder: "Ask about any bureaucratic procedure...",
+        tryLabel: "Try:",
+        ctaText: "Want full access? Create a free account to track your processes.",
+        ctaButton: "Create Account",
+        samples: {
+          residence: "How do I apply for a residence permit in Bulgaria?",
+          visa: "What documents do I need for a work visa?",
+          company: "How to register a company abroad?",
+        },
+      },
+      features: {
+        title: "Everything you need to conquer paperwork",
+        subtitle:
+          "Powerful features designed to make bureaucratic processes simple and stress-free.",
+        items: {
+          analysisTitle: "Document Analysis",
+          analysisDescription:
+            "Upload any document and get instant insights. Our AI understands forms, applications, and official letters.",
+          guidanceTitle: "Step-by-Step Guidance",
+          guidanceDescription:
+            "Get clear, numbered steps for any procedure. Know exactly what to do next and never miss a requirement.",
+          supportTitle: "Multi-Country Support",
+          supportDescription:
+            "Whether you are abroad or at home, get localized guidance for procedures across different countries.",
+          timeTitle: "Time Estimates",
+          timeDescription:
+            "Know how long each step takes. Plan your time and avoid unnecessary trips or delays.",
+          checklistTitle: "Document Checklist",
+          checklistDescription:
+            "Interactive checklists ensure you have everything ready. Track your progress and tick off completed items.",
+          askTitle: "Ask Anything",
+          askDescription:
+            "Have a specific question? Just ask. Get instant, accurate answers about any bureaucratic process.",
+        },
+      },
+      authPrompt: {
+        title: "Create a free account",
+        body:
+          "You've used your free trial. Create an account to continue using FormWise and track your bureaucratic processes.",
+        later: "Maybe later",
+        create: "Create Account",
+        existing: "Already have an account? Log in",
+      },
+      footer: {
+        product: "FormWise - AI-powered bureaucracy navigation",
+        tagline: "Built for those navigating complex processes",
+      },
+      loading: "Analyzing your question...",
+    },
+    header: {
+      dashboard: "Dashboard",
+      login: "Log in",
+      getStarted: "Get Started",
+    },
+    appShell: {
+      openMenu: "Open menu",
+      closeMenu: "Close menu",
+      openCommandPalette: "Open command palette",
+      searchPlaceholder: "Search or ask...",
+      searchFull: "Search procedures, ask AI...",
+      collapse: "Collapse",
+      expand: "Expand sidebar",
+      settings: "Settings",
+      logout: "Log out",
+    },
+    askInput: {
+      country: "Country:",
+      selectCountryHelp: "Select the country for this procedure",
+      followUpMode: "Follow-up Mode",
+      placeholder: "Ask about bureaucratic procedures in {country}...",
+      attach: "Attach Document",
+      attachHelp: "PDF or images up to 10MB",
+      analyzing: "Analyzing...",
+      ask: "Ask",
+      askFollowUp: "Ask Follow-up",
+      followUpTip:
+        "Tip: You can ask about specific steps, documents, costs, or any other detail from the previous answer. The context of your previous question is automatically included.",
+      dropHere: "Drop your document here",
+      selectCountry: "Select country",
+    },
+    askPage: {
+      title: "Ask FormWise",
+      subtitle:
+        "Ask any question about bureaucratic procedures and get detailed, source-backed guidance.",
+      hideHistory: "Hide History",
+      showHistory: "Show History",
+      historyTitle: "Conversation History",
+      you: "You",
+      searchingSources: "Searching official sources...",
+      compiling: "FormWise is compiling detailed guidance with legal references",
+      suggestionsLabel: "Try asking about:",
+      detailPrompt: "Please provide more details",
+      moreInfoBody: "For {country}, we need specific details to help you better.",
+      needSpecificInfo: "We need more specific information about your question for {country}.",
+      missingSpecificInfo:
+        "We couldn't find specific information for {country}. Please try a more specific question or check if you're asking about the correct country.",
+      failedAnalyze: "Failed to analyze your question. Please try again.",
+      failedAnswer: "Failed to get answer. Please try again.",
+      checkConnection: "Check your connection and try again.",
+      analysisComplete: "Analysis complete",
+      analysisDoneFor: "Document analyzed for {country} jurisdiction.",
+      answerReady: "Answer ready",
+      procedureInfoFor: "Procedure information for {country}.",
+      searchingFor: "Searching for {country}...",
+      providingGuidance: "FormWise is providing detailed guidance.",
+      detailedReady: "Detailed answer ready",
+      detailedInfoFor: "Information for {country}: {procedure}",
+      selectCountry: "Please select a country",
+      selectCountryDescription: "This helps us provide accurate information.",
+      selectCountryFirst: "Please select a country first",
+      loadingFor: "Analyzing for {country}...",
+      loadingDescription: "FormWise is searching the knowledge base and official sources.",
+      viewInChat: "View in Chat",
+      newQuestion: "New Question",
+      followUpTitle: "Follow-up Questions",
+      followUpSubtitle: "Ask a follow-up question to get more specific details",
+      lastUpdated: "Last updated: {date}",
+      suggestions: {
+        s1: "How do I get a residence permit?",
+        s2: "What documents do I need to register a company?",
+        s3: "How to apply for a work visa?",
+        s4: "What is the process to renew my passport?",
+      },
+      followUps: {
+        requirements: "What are the exact requirements?",
+        timeline: "How long does this take?",
+        cost: "What is the total cost?",
+        location: "Where exactly do I need to go?",
+        visaWork: "Can I work with this visa?",
+        visaFamily: "Can I bring my family?",
+        visaRejection: "What happens if my application is rejected?",
+        permitExtend: "Can I extend this permit?",
+        permitRenewal: "What are the conditions for renewal?",
+        permitStatus: "Can I change my status?",
+        catRequirements: "Requirements",
+        catTimeline: "Timeline",
+        catCosts: "Costs",
+        catLocation: "Location",
+        catWorkRights: "Work Rights",
+        catFamily: "Family",
+        catRejection: "Rejection",
+        catExtension: "Extension",
+        catRenewal: "Renewal",
+        catStatusChange: "Status Change",
+      },
+      moreInfoTips: {
+        intro: "Try including specific details like:",
+        one: 'The exact type of procedure (e.g., "work permit" not just "work")',
+        two: "Your nationality or current status",
+        three: "Specific city or region if relevant",
+      },
+      responseReceived: "Response received",
+    },
+    auth: {
+      login: {
+        title: "Welcome back",
+        subtitle: "Log in to your account to continue",
+        forgot: "Forgot password?",
+        passwordPlaceholder: "Enter your password",
+        loggingIn: "Logging in...",
+        orContinue: "Or continue with",
+        socialSoon: "Social login coming soon",
+        noAccount: "Don't have an account?",
+        failed: "Login failed",
+      },
+      register: {
+        title: "Create your account",
+        subtitle: "Start navigating bureaucracy with AI",
+        namePlaceholder: "John Doe",
+        passwordPlaceholder: "At least 6 characters",
+        creating: "Creating account...",
+        benefitsTitle: "What you get:",
+        already: "Already have an account?",
+        failed: "Registration failed",
+        passwordTooShort: "Password must be at least 6 characters",
+        features: {
+          one: "Unlimited document analysis",
+          two: "Process tracking dashboard",
+          three: "Document history",
+          four: "Priority support",
+        },
+      },
+    },
+    browse: {
+      title: "Browse Procedures",
+      subtitle: "Explore all available bureaucratic procedures by category.",
+      askInstead: "Ask AI Instead",
+      bannerTitle: "More Countries Coming Soon",
+      bannerBody:
+        "We're expanding to cover more countries. Currently featuring procedures for Bulgaria.",
+      prompt: "Can't find what you need?",
+      askAi: "Ask AI",
+      loading: "Loading...",
+    },
+    history: {
+      title: "History",
+      subtitle: "Browse your past questions and document analyses.",
+      searchPlaceholder: "Search history...",
+      noResultsBody: "Try adjusting your search or filter criteria.",
+      askNew: "Ask a new question",
+    },
+    dashboard: {
+      badge: "FormWise · AI assistant for European bureaucracy",
+      morning: "Good morning",
+      afternoon: "Good afternoon",
+      evening: "Good evening",
+      friend: "friend",
+      summary:
+        "Here's a snapshot of your bureaucratic journey. Press {shortcut} any time to search, navigate, or ask AI.",
+      newQuestion: "New Question",
+      openPalette: "or open command palette →",
+      welcomeTitle: "Welcome to FormWise!",
+      welcomeBody:
+        "Ask our AI assistant about any bureaucratic process and get step-by-step guidance.",
+      quickActions: "Quick Actions",
+      welcomeAction: "Get Started",
+    },
+    chatNoSpecificInfo:
+      "I don't have specific information about this procedure yet. Please check the official government website for {country}.",
+    compareInsufficientContext:
+      "I do not have enough official source context to compare these countries reliably yet. Please narrow the question or verify on official government websites.",
+    journeyLimitedInfo:
+      "Limited official procedure information is currently available for {country}.",
+    journeyMissingCoverage: "Missing grounded coverage for: {areas}.",
+    journeyVerifyRequirements:
+      "Verify visa, registration, and permit requirements on official government websites before acting.",
+    compareExcludedCountry:
+      "{code} was excluded because official source coverage was too weak for a reliable comparison.",
+    compareMissingStructuredCountry:
+      "{code} had source coverage but did not produce a sufficiently grounded structured comparison entry.",
+    compareNoGroundedOutput:
+      "I do not have enough grounded country-specific output to compare these options reliably.",
+    journeyMissingPhases:
+      "Some expected roadmap phases were missing from the model output and were reinserted as empty placeholders: {phases}.",
+    journeyLimitedCoverage:
+      "Some parts of this plan rely on limited official source coverage. Double-check these areas on official sources: {areas}.",
+    journeyNoStrongGrounding:
+      "No journey areas were strongly grounded in official source context.",
   },
   bg: {
-    chatNoSpecificInfo: ({ country = 'tazi darzhava' } = {}) =>
-      `Vse oshte nyamam konkretna informaciya za tazi procedura. Molya, proverete oficialniya pravitelstven sait za ${country}.`,
-    compareInsufficientContext: () =>
-      'Vse oshte nyamam dostatachno kontekst ot oficialni iztochnici, za da sravnya nadezhdno tezi darzhavi. Ogranichete vaprosa ili proverete oficialni pravitelstveni saitove.',
-    journeyLimitedInfo: ({ country = 'tazi darzhava' } = {}) =>
-      `V momenta ima ogranichena oficialna informaciya za proceduri za ${country}.`,
-    journeyMissingCoverage: ({ areas = 'relevantnite oblasti' } = {}) =>
-      `Lipsva podkrepeno pokritie za: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Proverete iziskvaniyata za viza, registraciya i razreshitelni v oficialni pravitelstveni saitove, predi da deistvate.',
-    compareExcludedCountry: ({ code = 'Tazi darzhava' } = {}) =>
-      `${code} beshe izklyuchena, zashtoto pokritieto ot oficialni iztochnici e tvarde slabo za nadezhdno sravnenie.`,
-    compareMissingStructuredCountry: ({ code = 'Tazi darzhava' } = {}) =>
-      `${code} imashe pokritie ot iztochnici, no ne proizvede dostatachno podkrepen strukturiran zapis za sravnenie.`,
-    compareNoGroundedOutput: () =>
-      'Nyamam dostatachno podkrepen izlaz po darzhavi, za da sravnya tezi opcii nadezhdno.',
-    journeyMissingPhases: ({ phases = 'nyakoi fazi' } = {}) =>
-      `Nyakoi ochakvani fazi ot plana lipsvaha v modelniya rezultat i byaha vmaknati otnovo kato prazni zamestiteli: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'nyakoi oblasti' } = {}) =>
-      `Nyakoi chasti ot tozi plan razchitat na ogranicheno pokritie ot oficialni iztochnici. Proverete tezi oblasti v oficialni iztochnici: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'Nito edna oblast ot plana za premestvane ne beshe silno podkrepena s oficialen kontekst.',
+    language: {
+      label: "Език",
+      change: "Смени езика",
+      english: "Английски",
+      bulgarian: "Български",
+      german: "Немски",
+    },
+    nav: {
+      dashboard: "Табло",
+      ask: "Попитай",
+      browse: "Разгледай",
+      history: "История",
+    },
+    common: {
+      loading: "Зареждане...",
+      close: "Затвори",
+      clear: "Изчисти",
+      search: "Търси",
+      email: "Имейл",
+      password: "Парола",
+      fullName: "Име и фамилия",
+      noResults: "Няма резултати",
+      tryAgain: "Опитай отново",
+      getStarted: "Започни",
+      createAccount: "Създай акаунт",
+      logIn: "Вход",
+      signUp: "Регистрация",
+      viewAll: "Виж всички",
+      all: "Всички",
+      questions: "Въпроси",
+      documents: "Документи",
+      completed: "Завършено",
+      inProgress: "В процес",
+      waiting: "Изчакване",
+      submitted: "Подаден",
+      pending: "Чакащ",
+      missing: "Липсващ",
+    },
+    landing: {
+      trustBadges: {
+        secure: "Сигурно и поверително",
+        instant: "Моментален анализ",
+        users: "10k+ потребители",
+      },
+      hero: {
+        badge: "AI насоки за всеки процес",
+        titlePrefix: "Премини през бюрокрацията",
+        titleHighlight: "без главоболия",
+        subtitle:
+          "Качи документи, задай въпроси и получи насоки стъпка по стъпка за всеки административен процес. От визи до бизнес разрешителни.",
+        tryFree: "Пробвай безплатно",
+        seeHow: "Виж как работи",
+        trust: "Не е нужна карта. 1 безплатен анализ за старт.",
+        docLabel: "Документ",
+        docValue: "Анализиран",
+        stepLabel: "Стъпка 3 от 5",
+        stepValue: "Завършена",
+      },
+      demo: {
+        title: "Пробвай сега",
+        subtitle:
+          "Задай въпрос за бюрократични процедури и виж как FormWise може да помогне.",
+        placeholder: "Попитай за бюрократична процедура...",
+        tryLabel: "Опитай:",
+        ctaText:
+          "Искаш пълен достъп? Създай безплатен акаунт, за да следиш процесите си.",
+        ctaButton: "Създай акаунт",
+        samples: {
+          residence: "Как да кандидатствам за разрешение за пребиваване в България?",
+          visa: "Какви документи ми трябват за работна виза?",
+          company: "Как да регистрирам фирма в чужбина?",
+        },
+      },
+      features: {
+        title: "Всичко нужно, за да овладееш документите",
+        subtitle:
+          "Мощни функции, създадени да направят бюрократичните процеси по-прости и по-малко стресиращи.",
+        items: {
+          analysisTitle: "Анализ на документи",
+          analysisDescription:
+            "Качи документ и получи моментални изводи. AI разпознава формуляри, заявления и официални писма.",
+          guidanceTitle: "Насоки стъпка по стъпка",
+          guidanceDescription:
+            "Получаваш ясни, номерирани стъпки за всяка процедура. Знаеш точно какво следва.",
+          supportTitle: "Поддръжка за много държави",
+          supportDescription:
+            "Независимо дали си у дома или в чужбина, получаваш локализирани насоки за различни държави.",
+          timeTitle: "Оценка на времето",
+          timeDescription:
+            "Виж колко време отнема всяка стъпка. Планирай по-добре и избягвай излишни забавяния.",
+          checklistTitle: "Списък с документи",
+          checklistDescription:
+            "Интерактивни списъци ти помагат да подготвиш всичко необходимо и да следиш напредъка си.",
+          askTitle: "Питай всичко",
+          askDescription:
+            "Имаш конкретен въпрос? Просто попитай. Получаваш бързи и точни отговори.",
+        },
+      },
+      authPrompt: {
+        title: "Създай безплатен акаунт",
+        body:
+          "Използва безплатния си опит. Създай акаунт, за да продължиш с FormWise и да следиш бюрократичните си процеси.",
+        later: "По-късно",
+        create: "Създай акаунт",
+        existing: "Вече имаш акаунт? Влез",
+      },
+      footer: {
+        product: "FormWise - AI навигация през бюрокрацията",
+        tagline: "Създаден за хората в сложни административни процеси",
+      },
+      loading: "Анализираме въпроса ти...",
+    },
+    header: {
+      dashboard: "Табло",
+      login: "Вход",
+      getStarted: "Започни",
+    },
+    appShell: {
+      openMenu: "Отвори меню",
+      closeMenu: "Затвори меню",
+      openCommandPalette: "Отвори командната палитра",
+      searchPlaceholder: "Търси или попитай...",
+      searchFull: "Търси процедури, попитай AI...",
+      collapse: "Свий",
+      expand: "Разгъни страничното меню",
+      settings: "Настройки",
+      logout: "Изход",
+    },
+    askInput: {
+      country: "Държава:",
+      selectCountryHelp: "Избери държавата за тази процедура",
+      followUpMode: "Режим за уточнение",
+      placeholder: "Попитай за бюрократични процедури в {country}...",
+      attach: "Прикачи документ",
+      attachHelp: "PDF или изображения до 10MB",
+      analyzing: "Анализиране...",
+      ask: "Попитай",
+      askFollowUp: "Попитай допълнително",
+      followUpTip:
+        "Съвет: можеш да питаш за конкретни стъпки, документи, разходи или друг детайл от предишния отговор. Контекстът се включва автоматично.",
+      dropHere: "Пусни документа тук",
+      selectCountry: "Избери държава",
+    },
+    askPage: {
+      title: "Попитай FormWise",
+      subtitle:
+        "Задай въпрос за бюрократични процедури и получи подробни насоки с източници.",
+      hideHistory: "Скрий историята",
+      showHistory: "Покажи историята",
+      historyTitle: "История на разговора",
+      you: "Ти",
+      searchingSources: "Търсене в официални източници...",
+      compiling: "FormWise събира подробни насоки с правни препратки",
+      suggestionsLabel: "Опитай да попиташ:",
+      detailPrompt: "Моля, добави повече детайли",
+      moreInfoBody: "За {country} ни трябват по-конкретни детайли, за да помогнем.",
+      needSpecificInfo:
+        "Нужна ни е по-конкретна информация за въпроса ти относно {country}.",
+      missingSpecificInfo:
+        "Не открихме достатъчно конкретна информация за {country}. Опитай с по-специфичен въпрос или провери дали държавата е правилна.",
+      failedAnalyze: "Неуспешен анализ на въпроса. Опитай отново.",
+      failedAnswer: "Не успяхме да получим отговор. Опитай отново.",
+      checkConnection: "Провери връзката си и опитай пак.",
+      analysisComplete: "Анализът е готов",
+      analysisDoneFor: "Документът е анализиран за юрисдикцията на {country}.",
+      answerReady: "Отговорът е готов",
+      procedureInfoFor: "Информация за процедурата в {country}.",
+      searchingFor: "Търсене за {country}...",
+      providingGuidance: "FormWise подготвя подробни насоки.",
+      detailedReady: "Подробният отговор е готов",
+      detailedInfoFor: "Информация за {country}: {procedure}",
+      selectCountry: "Моля, избери държава",
+      selectCountryDescription: "Това ни помага да дадем точна информация.",
+      selectCountryFirst: "Първо избери държава",
+      loadingFor: "Анализ за {country}...",
+      loadingDescription: "FormWise търси в базата знания и официални източници.",
+      viewInChat: "Виж в чата",
+      newQuestion: "Нов въпрос",
+      followUpTitle: "Допълнителни въпроси",
+      followUpSubtitle: "Задай уточняващ въпрос за по-конкретни детайли",
+      lastUpdated: "Последна актуализация: {date}",
+      suggestions: {
+        s1: "Как да получа разрешение за пребиваване?",
+        s2: "Какви документи трябват за регистрация на фирма?",
+        s3: "Как се кандидатства за работна виза?",
+        s4: "Каква е процедурата за подновяване на паспорт?",
+      },
+      followUps: {
+        requirements: "Какви са точните изисквания?",
+        timeline: "Колко време отнема?",
+        cost: "Каква е общата цена?",
+        location: "Къде точно трябва да отида?",
+        visaWork: "Мога ли да работя с тази виза?",
+        visaFamily: "Мога ли да доведа семейството си?",
+        visaRejection: "Какво става, ако молбата бъде отказана?",
+        permitExtend: "Мога ли да удължа това разрешение?",
+        permitRenewal: "Какви са условията за подновяване?",
+        permitStatus: "Мога ли да сменя статуса си?",
+        catRequirements: "Изисквания",
+        catTimeline: "Срок",
+        catCosts: "Разходи",
+        catLocation: "Място",
+        catWorkRights: "Право на работа",
+        catFamily: "Семейство",
+        catRejection: "Отказ",
+        catExtension: "Удължаване",
+        catRenewal: "Подновяване",
+        catStatusChange: "Смяна на статут",
+      },
+      moreInfoTips: {
+        intro: "Опитай да добавиш детайли като:",
+        one: 'Точния вид процедура (напр. "разрешение за работа", а не само "работа")',
+        two: "Твоята националност или текущ статут",
+        three: "Конкретен град или регион, ако е важно",
+      },
+      responseReceived: "Получен отговор",
+    },
+    auth: {
+      login: {
+        title: "Добре дошъл отново",
+        subtitle: "Влез в акаунта си, за да продължиш",
+        forgot: "Забравена парола?",
+        passwordPlaceholder: "Въведи паролата си",
+        loggingIn: "Влизане...",
+        orContinue: "Или продължи с",
+        socialSoon: "Социалният вход идва скоро",
+        noAccount: "Нямаш акаунт?",
+        failed: "Неуспешен вход",
+      },
+      register: {
+        title: "Създай своя акаунт",
+        subtitle: "Започни да навигираш бюрокрацията с AI",
+        namePlaceholder: "Иван Иванов",
+        passwordPlaceholder: "Поне 6 символа",
+        creating: "Създаване на акаунт...",
+        benefitsTitle: "Какво получаваш:",
+        already: "Вече имаш акаунт?",
+        failed: "Неуспешна регистрация",
+        passwordTooShort: "Паролата трябва да е поне 6 символа",
+        features: {
+          one: "Неограничен анализ на документи",
+          two: "Табло за проследяване на процеси",
+          three: "История на документите",
+          four: "Приоритетна поддръжка",
+        },
+      },
+    },
+    browse: {
+      title: "Разгледай процедури",
+      subtitle: "Разгледай наличните бюрократични процедури по категории.",
+      askInstead: "Попитай AI вместо това",
+      bannerTitle: "Още държави идват скоро",
+      bannerBody:
+        "Разширяваме обхвата с още държави. В момента акцентът е върху процедури за България.",
+      prompt: "Не намираш каквото ти трябва?",
+      askAi: "Попитай AI",
+      loading: "Зареждане...",
+    },
+    history: {
+      title: "История",
+      subtitle: "Разгледай предишните си въпроси и анализи на документи.",
+      searchPlaceholder: "Търси в историята...",
+      noResultsBody: "Опитай да промениш търсенето или филтрите.",
+      askNew: "Задай нов въпрос",
+    },
+    dashboard: {
+      badge: "FormWise · AI асистент за европейска бюрокрация",
+      morning: "Добро утро",
+      afternoon: "Добър ден",
+      evening: "Добър вечер",
+      friend: "приятелю",
+      summary:
+        "Ето кратък преглед на бюрократичния ти път. Натисни {shortcut} по всяко време, за да търсиш, навигираш или попиташ AI.",
+      newQuestion: "Нов въпрос",
+      openPalette: "или отвори командната палитра →",
+      welcomeTitle: "Добре дошъл във FormWise!",
+      welcomeBody:
+        "Попитай AI асистента ни за всяка бюрократична процедура и получи насоки стъпка по стъпка.",
+      quickActions: "Бързи действия",
+      welcomeAction: "Започни",
+    },
+    chatNoSpecificInfo:
+      "Все още нямам конкретна информация за тази процедура. Моля, провери официалния правителствен сайт за {country}.",
+    compareInsufficientContext:
+      "Все още нямам достатъчно официални източници, за да сравня надеждно тези държави. Стесни въпроса или провери официалните правителствени сайтове.",
+    journeyLimitedInfo:
+      "В момента има ограничена официална информация за процедури в {country}.",
+    journeyMissingCoverage: "Липсва надеждно покритие за: {areas}.",
+    journeyVerifyRequirements:
+      "Провери изискванията за виза, регистрация и разрешителни в официалните правителствени сайтове, преди да действаш.",
+    compareExcludedCountry:
+      "{code} е изключена, защото покритието от официални източници е твърде слабо за надеждно сравнение.",
+    compareMissingStructuredCountry:
+      "{code} имаше източници, но не произведе достатъчно надежден структуриран запис за сравнение.",
+    compareNoGroundedOutput:
+      "Нямам достатъчно надежден изход по държави, за да сравня тези опции.",
+    journeyMissingPhases:
+      "Някои очаквани фази липсваха в изхода на модела и бяха върнати като празни секции: {phases}.",
+    journeyLimitedCoverage:
+      "Части от този план разчитат на ограничено покритие от официални източници. Провери следните области: {areas}.",
+    journeyNoStrongGrounding:
+      "Нито една част от този план не беше силно подкрепена от официален контекст.",
   },
-  tr: {
-    chatNoSpecificInfo: ({ country = 'bu ulke' } = {}) =>
-      `Bu prosedur hakkinda henuz ozel bilgiye sahip degilim. Lutfen ${country} icin resmi devlet web sitesini kontrol edin.`,
-    compareInsufficientContext: () =>
-      `Bu ulkeleri guvenilir bicimde karsilastirmak icin henuz yeterli resmi kaynak baglamina sahip degilim. Soruyu daraltin veya resmi devlet sitelerini kontrol edin.`,
-    journeyLimitedInfo: ({ country = 'bu ulke' } = {}) =>
-      `${country} icin resmi prosedur bilgileri su anda sinirlidir.`,
-    journeyMissingCoverage: ({ areas = 'ilgili alanlar' } = {}) =>
-      `Su alanlar icin dayanakli kapsam eksik: ${areas}.`,
-    journeyVerifyRequirements: () =>
-      'Harekete gecmeden once vize, kayit ve izin gerekliliklerini resmi devlet sitelerinde dogrulayin.',
-    compareExcludedCountry: ({ code = 'Bu ulke' } = {}) =>
-      `${code}, guvenilir bir karsilastirma icin resmi kaynak kapsami cok zayif oldugu icin dislandi.`,
-    compareMissingStructuredCountry: ({ code = 'Bu ulke' } = {}) =>
-      `${code} kaynak kapsamina sahipti ancak yeterince dayanakli yapilandirilmis bir karsilastirma girdisi uretmedi.`,
-    compareNoGroundedOutput: () =>
-      'Bu secenekleri guvenilir bicimde karsilastirmak icin yeterli dayanakli ulkeye ozgu cikti yok.',
-    journeyMissingPhases: ({ phases = 'bazi asamalar' } = {}) =>
-      `Beklenen yol haritasi asamalarindan bazilari model cikisinda yoktu ve bos yer tutucular olarak yeniden eklendi: ${phases}.`,
-    journeyLimitedCoverage: ({ areas = 'bazi alanlar' } = {}) =>
-      `Bu planin bazi kisimlari sinirli resmi kaynak kapsamina dayaniyor. Su alanlari resmi kaynaklarda yeniden kontrol edin: ${areas}.`,
-    journeyNoStrongGrounding: () =>
-      'Tasinma planinin hicbir alani resmi kaynak baglami ile guclu sekilde desteklenmedi.',
+  de: {
+    language: {
+      label: "Sprache",
+      change: "Sprache wechseln",
+      english: "Englisch",
+      bulgarian: "Bulgarisch",
+      german: "Deutsch",
+    },
+    nav: {
+      dashboard: "Dashboard",
+      ask: "Fragen",
+      browse: "Durchsuchen",
+      history: "Verlauf",
+    },
+    common: {
+      loading: "Laden...",
+      close: "Schließen",
+      clear: "Leeren",
+      search: "Suchen",
+      email: "E-Mail",
+      password: "Passwort",
+      fullName: "Vollständiger Name",
+      noResults: "Keine Ergebnisse gefunden",
+      tryAgain: "Erneut versuchen",
+      getStarted: "Loslegen",
+      createAccount: "Konto erstellen",
+      logIn: "Anmelden",
+      signUp: "Registrieren",
+      viewAll: "Alle anzeigen",
+      all: "Alle",
+      questions: "Fragen",
+      documents: "Dokumente",
+      completed: "Abgeschlossen",
+      inProgress: "In Bearbeitung",
+      waiting: "Wartend",
+      submitted: "Eingereicht",
+      pending: "Ausstehend",
+      missing: "Fehlend",
+    },
+    landing: {
+      trustBadges: {
+        secure: "Sicher & privat",
+        instant: "Sofortanalyse",
+        users: "10k+ Nutzer",
+      },
+      hero: {
+        badge: "KI-gestützte Hilfe für jeden Prozess",
+        titlePrefix: "Bürokratie bewältigen",
+        titleHighlight: "ohne Kopfschmerzen",
+        subtitle:
+          "Lade Dokumente hoch, stelle Fragen und erhalte Schritt-für-Schritt-Hilfe für jeden Verwaltungsvorgang. Von Visa bis zu Gewerbegenehmigungen.",
+        tryFree: "Kostenlos testen",
+        seeHow: "So funktioniert's",
+        trust: "Keine Kreditkarte erforderlich. 1 kostenlose Analyse zum Start.",
+        docLabel: "Dokument",
+        docValue: "Analysiert",
+        stepLabel: "Schritt 3 von 5",
+        stepValue: "Abgeschlossen",
+      },
+      demo: {
+        title: "Jetzt ausprobieren",
+        subtitle:
+          "Stelle eine Frage zu Verwaltungsverfahren und sieh, wie FormWise helfen kann.",
+        placeholder: "Frage zu einem Verwaltungsverfahren stellen...",
+        tryLabel: "Versuche:",
+        ctaText:
+          "Willst du vollen Zugriff? Erstelle ein kostenloses Konto und verfolge deine Prozesse.",
+        ctaButton: "Konto erstellen",
+        samples: {
+          residence: "Wie beantrage ich eine Aufenthaltserlaubnis in Bulgarien?",
+          visa: "Welche Unterlagen brauche ich für ein Arbeitsvisum?",
+          company: "Wie registriere ich ein Unternehmen im Ausland?",
+        },
+      },
+      features: {
+        title: "Alles, was du brauchst, um Papierkram zu meistern",
+        subtitle:
+          "Leistungsstarke Funktionen, die bürokratische Prozesse einfacher und stressfreier machen.",
+        items: {
+          analysisTitle: "Dokumentenanalyse",
+          analysisDescription:
+            "Lade ein Dokument hoch und erhalte sofort Einblicke. Unsere KI versteht Formulare, Anträge und amtliche Schreiben.",
+          guidanceTitle: "Schritt-für-Schritt-Anleitung",
+          guidanceDescription:
+            "Erhalte klare, nummerierte Schritte für jedes Verfahren. So weißt du genau, was als Nächstes zu tun ist.",
+          supportTitle: "Unterstützung für mehrere Länder",
+          supportDescription:
+            "Ob im Ausland oder zu Hause: Du erhältst lokalisierte Hilfe für Verfahren in verschiedenen Ländern.",
+          timeTitle: "Zeitabschätzungen",
+          timeDescription:
+            "Sieh, wie lange jeder Schritt dauert. Plane besser und vermeide unnötige Wege oder Verzögerungen.",
+          checklistTitle: "Dokumenten-Checkliste",
+          checklistDescription:
+            "Interaktive Checklisten helfen dir, alles rechtzeitig vorzubereiten und deinen Fortschritt zu verfolgen.",
+          askTitle: "Frag alles",
+          askDescription:
+            "Du hast eine konkrete Frage? Frag einfach. Du bekommst schnelle und präzise Antworten.",
+        },
+      },
+      authPrompt: {
+        title: "Kostenloses Konto erstellen",
+        body:
+          "Du hast deine kostenlose Testanfrage genutzt. Erstelle ein Konto, um FormWise weiter zu nutzen und deine bürokratischen Prozesse zu verfolgen.",
+        later: "Später",
+        create: "Konto erstellen",
+        existing: "Du hast bereits ein Konto? Anmelden",
+      },
+      footer: {
+        product: "FormWise - KI-gestützte Bürokratie-Navigation",
+        tagline: "Entwickelt für Menschen in komplexen Verwaltungsprozessen",
+      },
+      loading: "Deine Frage wird analysiert...",
+    },
+    header: {
+      dashboard: "Dashboard",
+      login: "Anmelden",
+      getStarted: "Loslegen",
+    },
+    appShell: {
+      openMenu: "Menü öffnen",
+      closeMenu: "Menü schließen",
+      openCommandPalette: "Befehlspalette öffnen",
+      searchPlaceholder: "Suchen oder fragen...",
+      searchFull: "Verfahren suchen, KI fragen...",
+      collapse: "Einklappen",
+      expand: "Seitenleiste erweitern",
+      settings: "Einstellungen",
+      logout: "Abmelden",
+    },
+    askInput: {
+      country: "Land:",
+      selectCountryHelp: "Wähle das Land für dieses Verfahren",
+      followUpMode: "Nachfrage-Modus",
+      placeholder: "Frage nach Verwaltungsverfahren in {country}...",
+      attach: "Dokument anhängen",
+      attachHelp: "PDF oder Bilder bis 10MB",
+      analyzing: "Analysiere...",
+      ask: "Fragen",
+      askFollowUp: "Nachfrage stellen",
+      followUpTip:
+        "Tipp: Du kannst nach konkreten Schritten, Dokumenten, Kosten oder anderen Details aus der vorherigen Antwort fragen. Der bisherige Kontext wird automatisch einbezogen.",
+      dropHere: "Dokument hier ablegen",
+      selectCountry: "Land auswählen",
+    },
+    askPage: {
+      title: "FormWise fragen",
+      subtitle:
+        "Stelle Fragen zu Verwaltungsverfahren und erhalte detaillierte, quellenbasierte Hilfe.",
+      hideHistory: "Verlauf ausblenden",
+      showHistory: "Verlauf anzeigen",
+      historyTitle: "Gesprächsverlauf",
+      you: "Du",
+      searchingSources: "Offizielle Quellen werden durchsucht...",
+      compiling: "FormWise erstellt detaillierte Hilfe mit rechtlichen Verweisen",
+      suggestionsLabel: "Zum Beispiel:",
+      detailPrompt: "Bitte gib mehr Details an",
+      moreInfoBody:
+        "Für {country} brauchen wir genauere Angaben, um dir besser helfen zu können.",
+      needSpecificInfo:
+        "Wir brauchen genauere Informationen zu deiner Frage für {country}.",
+      missingSpecificInfo:
+        "Wir konnten keine ausreichend konkreten Informationen für {country} finden. Versuche eine spezifischere Frage oder prüfe das richtige Land.",
+      failedAnalyze: "Die Analyse deiner Frage ist fehlgeschlagen. Bitte versuche es erneut.",
+      failedAnswer: "Die Antwort konnte nicht geladen werden. Bitte versuche es erneut.",
+      checkConnection: "Prüfe deine Verbindung und versuche es erneut.",
+      analysisComplete: "Analyse abgeschlossen",
+      analysisDoneFor: "Dokument für den Zuständigkeitsbereich {country} analysiert.",
+      answerReady: "Antwort bereit",
+      procedureInfoFor: "Verfahrensinformationen für {country}.",
+      searchingFor: "Suche für {country}...",
+      providingGuidance: "FormWise erstellt detaillierte Hinweise.",
+      detailedReady: "Detaillierte Antwort bereit",
+      detailedInfoFor: "Informationen für {country}: {procedure}",
+      selectCountry: "Bitte wähle ein Land",
+      selectCountryDescription: "Das hilft uns, genaue Informationen zu liefern.",
+      selectCountryFirst: "Bitte zuerst ein Land auswählen",
+      loadingFor: "Analyse für {country}...",
+      loadingDescription:
+        "FormWise durchsucht die Wissensdatenbank und offizielle Quellen.",
+      viewInChat: "Im Chat anzeigen",
+      newQuestion: "Neue Frage",
+      followUpTitle: "Nachfragen",
+      followUpSubtitle: "Stelle eine Nachfrage für genauere Details",
+      lastUpdated: "Zuletzt aktualisiert: {date}",
+      suggestions: {
+        s1: "Wie bekomme ich eine Aufenthaltserlaubnis?",
+        s2: "Welche Unterlagen brauche ich für eine Unternehmensregistrierung?",
+        s3: "Wie beantrage ich ein Arbeitsvisum?",
+        s4: "Wie läuft die Passverlängerung ab?",
+      },
+      followUps: {
+        requirements: "Was sind die genauen Voraussetzungen?",
+        timeline: "Wie lange dauert das?",
+        cost: "Wie hoch sind die Gesamtkosten?",
+        location: "Wo genau muss ich hingehen?",
+        visaWork: "Darf ich mit diesem Visum arbeiten?",
+        visaFamily: "Kann ich meine Familie mitbringen?",
+        visaRejection: "Was passiert bei einer Ablehnung?",
+        permitExtend: "Kann ich diese Erlaubnis verlängern?",
+        permitRenewal: "Welche Voraussetzungen gelten für die Verlängerung?",
+        permitStatus: "Kann ich meinen Status ändern?",
+        catRequirements: "Voraussetzungen",
+        catTimeline: "Dauer",
+        catCosts: "Kosten",
+        catLocation: "Ort",
+        catWorkRights: "Arbeitsrechte",
+        catFamily: "Familie",
+        catRejection: "Ablehnung",
+        catExtension: "Verlängerung",
+        catRenewal: "Erneuerung",
+        catStatusChange: "Statuswechsel",
+      },
+      moreInfoTips: {
+        intro: "Füge zum Beispiel diese Details hinzu:",
+        one: 'Die genaue Art des Verfahrens (z. B. "Arbeitserlaubnis" statt nur "Arbeit")',
+        two: "Deine Staatsangehörigkeit oder deinen aktuellen Status",
+        three: "Falls relevant: konkrete Stadt oder Region",
+      },
+      responseReceived: "Antwort erhalten",
+    },
+    auth: {
+      login: {
+        title: "Willkommen zurück",
+        subtitle: "Melde dich an, um fortzufahren",
+        forgot: "Passwort vergessen?",
+        passwordPlaceholder: "Passwort eingeben",
+        loggingIn: "Anmeldung läuft...",
+        orContinue: "Oder fortfahren mit",
+        socialSoon: "Social Login kommt bald",
+        noAccount: "Noch kein Konto?",
+        failed: "Anmeldung fehlgeschlagen",
+      },
+      register: {
+        title: "Konto erstellen",
+        subtitle: "Bürokratie mit KI leichter bewältigen",
+        namePlaceholder: "Max Mustermann",
+        passwordPlaceholder: "Mindestens 6 Zeichen",
+        creating: "Konto wird erstellt...",
+        benefitsTitle: "Das bekommst du:",
+        already: "Du hast bereits ein Konto?",
+        failed: "Registrierung fehlgeschlagen",
+        passwordTooShort: "Das Passwort muss mindestens 6 Zeichen lang sein",
+        features: {
+          one: "Unbegrenzte Dokumentenanalyse",
+          two: "Dashboard zur Prozessverfolgung",
+          three: "Dokumentenverlauf",
+          four: "Priorisierter Support",
+        },
+      },
+    },
+    browse: {
+      title: "Verfahren durchsuchen",
+      subtitle: "Entdecke verfügbare Verwaltungsverfahren nach Kategorie.",
+      askInstead: "Stattdessen KI fragen",
+      bannerTitle: "Weitere Länder folgen bald",
+      bannerBody:
+        "Wir erweitern die Abdeckung auf weitere Länder. Der aktuelle Fokus liegt auf Bulgarien.",
+      prompt: "Nicht gefunden, was du brauchst?",
+      askAi: "KI fragen",
+      loading: "Laden...",
+    },
+    history: {
+      title: "Verlauf",
+      subtitle: "Durchsuche frühere Fragen und Dokumentenanalysen.",
+      searchPlaceholder: "Verlauf durchsuchen...",
+      noResultsBody: "Passe deine Suche oder Filter an.",
+      askNew: "Neue Frage stellen",
+    },
+    dashboard: {
+      badge: "FormWise · KI-Assistent für europäische Bürokratie",
+      morning: "Guten Morgen",
+      afternoon: "Guten Tag",
+      evening: "Guten Abend",
+      friend: "Freund",
+      summary:
+        "Hier ist ein Überblick über deinen bürokratischen Weg. Drücke jederzeit {shortcut}, um zu suchen, zu navigieren oder die KI zu fragen.",
+      newQuestion: "Neue Frage",
+      openPalette: "oder Befehlspalette öffnen →",
+      welcomeTitle: "Willkommen bei FormWise!",
+      welcomeBody:
+        "Frage unseren KI-Assistenten zu jedem bürokratischen Prozess und erhalte Hilfe Schritt für Schritt.",
+      quickActions: "Schnellaktionen",
+      welcomeAction: "Loslegen",
+    },
+    chatNoSpecificInfo:
+      "Ich habe noch keine konkreten Informationen zu diesem Verfahren. Bitte prüfe die offizielle Regierungswebsite für {country}.",
+    compareInsufficientContext:
+      "Ich habe noch nicht genug offiziellen Quellenkontext, um diese Länder zuverlässig zu vergleichen. Bitte präzisiere die Frage oder prüfe offizielle Regierungswebsites.",
+    journeyLimitedInfo:
+      "Derzeit sind nur begrenzte offizielle Verfahrensinformationen für {country} verfügbar.",
+    journeyMissingCoverage: "Fehlende belastbare Abdeckung für: {areas}.",
+    journeyVerifyRequirements:
+      "Prüfe Visum-, Melde- und Genehmigungsanforderungen auf offiziellen Regierungswebsites, bevor du handelst.",
+    compareExcludedCountry:
+      "{code} wurde ausgeschlossen, weil die offizielle Quellenlage für einen verlässlichen Vergleich zu schwach war.",
+    compareMissingStructuredCountry:
+      "{code} hatte Quellenabdeckung, lieferte aber keinen ausreichend belastbaren strukturierten Vergleichseintrag.",
+    compareNoGroundedOutput:
+      "Ich habe nicht genug belastbare länderspezifische Ausgaben, um diese Optionen verlässlich zu vergleichen.",
+    journeyMissingPhases:
+      "Einige erwartete Roadmap-Phasen fehlten in der Modellausgabe und wurden als leere Platzhalter wieder eingefügt: {phases}.",
+    journeyLimitedCoverage:
+      "Einige Teile dieses Plans beruhen auf begrenzter offizieller Quellenabdeckung. Prüfe diese Bereiche in offiziellen Quellen: {areas}.",
+    journeyNoStrongGrounding:
+      "Keine Bereiche der Umzugsplanung waren stark im offiziellen Quellenkontext verankert.",
   },
 };
 
-export function getLanguageName(language?: string): string {
-  if (!language) {
-    return LANGUAGE_NAMES.en;
+function getTranslationValue(language: Language, key: string): TranslationValue | undefined {
+  return key.split(".").reduce<TranslationValue | undefined>((current, part) => {
+    if (!current || typeof current === "string") {
+      return undefined;
+    }
+
+    return current[part];
+  }, TRANSLATIONS[language]);
+}
+
+function interpolate(template: string, params?: Record<string, string>): string {
+  if (!params) {
+    return template;
   }
 
-  return LANGUAGE_NAMES[language as Language] || LANGUAGE_NAMES.en;
+  return template.replace(/\{(\w+)\}/g, (_, token: string) => params[token] ?? `{${token}}`);
+}
+
+export function isLanguage(value: string | undefined): value is Language {
+  return value === "bg" || value === "en" || value === "de";
+}
+
+export function getLanguageName(language?: string): string {
+  return isLanguage(language) ? LANGUAGE_NAMES[language] : LANGUAGE_NAMES[DEFAULT_LANGUAGE];
 }
 
 export function t(
   language: string | undefined,
-  key: MessageKey,
+  key: string,
   params?: Record<string, string>,
 ): string {
-  const safeLanguage = (language as Language) || 'en';
-  const dictionary = messages[safeLanguage] || messages.en;
-  return dictionary[key](params);
+  const safeLanguage = isLanguage(language) ? language : DEFAULT_LANGUAGE;
+  const translated = getTranslationValue(safeLanguage, key) ?? getTranslationValue(DEFAULT_LANGUAGE, key);
+
+  if (typeof translated !== "string") {
+    return key;
+  }
+
+  return interpolate(translated, params);
 }

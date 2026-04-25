@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Send, Loader2, ArrowRight } from "lucide-react"
 import Link from "next/link"
-
-const sampleQuestions = [
-  "How do I apply for a residence permit in Bulgaria?",
-  "What documents do I need for a work visa?",
-  "How to register a company abroad?",
-]
+import { useI18n } from "@/lib/i18n-context"
 
 interface DemoPreviewProps {
   onSubmit: (question: string) => void
@@ -20,9 +15,15 @@ interface DemoPreviewProps {
 }
 
 export function DemoPreview({ onSubmit, isLoading }: DemoPreviewProps) {
+  const { translate: tr } = useI18n()
   const [question, setQuestion] = useState("")
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-100px" })
+  const sampleQuestions = [
+    tr("landing.demo.samples.residence"),
+    tr("landing.demo.samples.visa"),
+    tr("landing.demo.samples.company"),
+  ]
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,10 +47,10 @@ export function DemoPreview({ onSubmit, isLoading }: DemoPreviewProps) {
         >
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
-              Try it now
+              {tr("landing.demo.title")}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Ask any question about bureaucratic procedures and see how FormWise can help.
+              {tr("landing.demo.subtitle")}
             </p>
           </div>
 
@@ -59,7 +60,7 @@ export function DemoPreview({ onSubmit, isLoading }: DemoPreviewProps) {
                 <Input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask about any bureaucratic procedure..."
+                  placeholder={tr("landing.demo.placeholder")}
                   className="h-14 pr-14 text-base bg-background"
                   disabled={isLoading}
                 />
@@ -78,7 +79,7 @@ export function DemoPreview({ onSubmit, isLoading }: DemoPreviewProps) {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <span className="text-sm text-muted-foreground">Try:</span>
+                <span className="text-sm text-muted-foreground">{tr("landing.demo.tryLabel")}</span>
                 {sampleQuestions.map((sample) => (
                   <button
                     key={sample}
@@ -96,11 +97,11 @@ export function DemoPreview({ onSubmit, isLoading }: DemoPreviewProps) {
             <div className="mt-8 pt-6 border-t border-border">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground text-center sm:text-left">
-                  Want full access? Create a free account to track your processes.
+                  {tr("landing.demo.ctaText")}
                 </p>
                 <Button variant="outline" asChild className="group gap-2">
                   <Link href="/register">
-                    Create Account
+                    {tr("landing.demo.ctaButton")}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>

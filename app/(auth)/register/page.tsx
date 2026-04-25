@@ -9,18 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth/context"
+import { useI18n } from "@/lib/i18n-context"
 import { Loader2, ArrowRight, Check } from "lucide-react"
-
-const features = [
-  "Unlimited document analysis",
-  "Process tracking dashboard",
-  "Document history",
-  "Priority support",
-]
 
 export default function RegisterPage() {
   const router = useRouter()
   const { register } = useAuth()
+  const { translate: tr } = useI18n()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
@@ -35,7 +30,7 @@ export default function RegisterPage() {
     setError("")
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters")
+      setError(tr("auth.register.passwordTooShort"))
       setIsLoading(false)
       return
     }
@@ -45,7 +40,7 @@ export default function RegisterPage() {
     if (result.success) {
       router.push("/dashboard")
     } else {
-      setError(result.error || "Registration failed")
+      setError(result.error || tr("auth.register.failed"))
     }
     
     setIsLoading(false)
@@ -58,6 +53,13 @@ export default function RegisterPage() {
     }))
   }
 
+  const features = [
+    tr("auth.register.features.one"),
+    tr("auth.register.features.two"),
+    tr("auth.register.features.three"),
+    tr("auth.register.features.four"),
+  ]
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -67,9 +69,9 @@ export default function RegisterPage() {
     >
       <Card className="border-border/50 shadow-xl bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create your account</CardTitle>
+          <CardTitle className="text-2xl">{tr("auth.register.title")}</CardTitle>
           <CardDescription>
-            Start navigating bureaucracy with AI
+            {tr("auth.register.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -85,12 +87,12 @@ export default function RegisterPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">{tr("common.fullName")}</Label>
               <Input
                 id="name"
                 name="name"
                 type="text"
-                placeholder="John Doe"
+                placeholder={tr("auth.register.namePlaceholder")}
                 value={formData.name}
                 onChange={handleChange}
                 required
@@ -100,7 +102,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{tr("common.email")}</Label>
               <Input
                 id="email"
                 name="email"
@@ -115,12 +117,12 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{tr("common.password")}</Label>
               <Input
                 id="password"
                 name="password"
                 type="password"
-                placeholder="At least 6 characters"
+                placeholder={tr("auth.register.passwordPlaceholder")}
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -137,11 +139,11 @@ export default function RegisterPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating account...
+                  {tr("auth.register.creating")}
                 </>
               ) : (
                 <>
-                  Create Account
+                  {tr("common.createAccount")}
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -150,7 +152,7 @@ export default function RegisterPage() {
 
           {/* Features list */}
           <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-sm font-medium mb-3">What you get:</p>
+            <p className="text-sm font-medium mb-3">{tr("auth.register.benefitsTitle")}</p>
             <ul className="space-y-2">
               {features.map((feature) => (
                 <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -162,9 +164,9 @@ export default function RegisterPage() {
           </div>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Already have an account? </span>
+            <span className="text-muted-foreground">{tr("auth.register.already")} </span>
             <Link href="/login" className="text-primary hover:underline font-medium">
-              Log in
+              {tr("common.logIn")}
             </Link>
           </div>
         </CardContent>

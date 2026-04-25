@@ -83,7 +83,7 @@ export type ProcedureSummary = z.infer<typeof ProcedureSummarySchema>;
 // --- Enums and Constants ---
 export type Country = 'BG' | 'DE' | 'NL' | 'PT' | 'ES' | 'FR' | 'PL' | 'CZ'
   | 'AT' | 'SE' | 'HR' | 'GR' | 'RO' | 'GE' | 'RS' | 'GB' | 'CH' | 'UA';
-export type Language = 'en' | 'bg' | 'de' | 'nl' | 'pt' | 'es' | 'fr' | 'tr';
+export type Language = 'en' | 'bg' | 'de';
 export type AppMode = 'chat' | 'browse' | 'upload' | 'analyze' | 'journey' | 'compare';
 
 export const COUNTRY_NAMES: Record<string, string> = {

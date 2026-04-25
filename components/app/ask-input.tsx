@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Send, Loader2, Upload, X, FileText, Image as ImageIcon, Globe, MessageCircle } from "lucide-react"
 import { CountrySelector, COUNTRIES } from "./country-selector"
+import { useI18n } from "@/lib/i18n-context"
 
 interface AskInputProps {
   onSubmit: (question: string, file?: File, country?: string) => void
@@ -26,6 +27,7 @@ export function AskInput({
   initialCountry = "BG",
   isFollowUp = false
 }: AskInputProps) {
+  const { translate: tr } = useI18n()
   const [question, setQuestion] = useState(initialValue ?? "")
   const [file, setFile] = useState<File | null>(null)
   const [country, setCountry] = useState(initialCountry)
@@ -87,7 +89,7 @@ export function AskInput({
         <div className="flex items-center gap-3 pb-2 border-b">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Globe className="h-4 w-4" />
-            <span>Country:</span>
+            <span>{tr("askInput.country")}</span>
           </div>
           <CountrySelector 
             value={country} 
@@ -95,7 +97,7 @@ export function AskInput({
             disabled={isLoading}
           />
           <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">
-            Select the country for this procedure
+            {tr("askInput.selectCountryHelp")}
           </span>
           
           {/* Follow-up indicator */}
@@ -109,7 +111,7 @@ export function AskInput({
               >
                 <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary border-primary/20">
                   <MessageCircle className="h-3 w-3" />
-                  Follow-up Mode
+                  {tr("askInput.followUpMode")}
                 </Badge>
               </motion.div>
             )}
@@ -121,7 +123,12 @@ export function AskInput({
           <Textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder={placeholder || `Ask about bureaucratic procedures in ${COUNTRIES.find(c => c.code === country)?.name || 'your selected country'}...`}
+            placeholder={
+              placeholder ||
+              tr("askInput.placeholder", {
+                country: COUNTRIES.find((c) => c.code === country)?.name || tr("askInput.selectCountry"),
+              })
+            }
             className="min-h-[120px] resize-none text-base pr-12"
             disabled={isLoading}
             onKeyDown={(e) => {
@@ -192,11 +199,11 @@ export function AskInput({
               className="gap-2"
             >
               <Upload className="h-4 w-4" />
-              Attach Document
+              {tr("askInput.attach")}
             </Button>
 
             <span className="text-xs text-muted-foreground hidden md:inline">
-              PDF or images up to 10MB
+              {tr("askInput.attachHelp")}
             </span>
           </div>
 
@@ -208,17 +215,17 @@ export function AskInput({
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Analyzing...
+                {tr("askInput.analyzing")}
               </>
             ) : isFollowUp ? (
               <>
                 <Send className="h-4 w-4" />
-                Ask Follow-up
+                {tr("askInput.askFollowUp")}
               </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                Ask
+                {tr("askInput.ask")}
               </>
             )}
           </Button>
@@ -234,8 +241,7 @@ export function AskInput({
               className="pt-2 border-t"
             >
               <p className="text-xs text-muted-foreground text-center">
-                Tip: You can ask about specific steps, documents, costs, or any other detail from the previous answer.
-                The context of your previous question is automatically included.
+                {tr("askInput.followUpTip")}
               </p>
             </motion.div>
           )}
@@ -253,7 +259,7 @@ export function AskInput({
           >
             <div className="text-center">
               <Upload className="h-8 w-8 mx-auto text-primary mb-2" />
-              <p className="text-sm font-medium">Drop your document here</p>
+              <p className="text-sm font-medium">{tr("askInput.dropHere")}</p>
             </div>
           </motion.div>
         )}

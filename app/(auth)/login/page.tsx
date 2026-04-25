@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth/context"
+import { useI18n } from "@/lib/i18n-context"
 import { Loader2, ArrowRight } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
+  const { translate: tr } = useI18n()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
@@ -31,7 +33,7 @@ export default function LoginPage() {
     if (result.success) {
       router.push("/dashboard")
     } else {
-      setError(result.error || "Login failed")
+      setError(result.error || tr("auth.login.failed"))
     }
     
     setIsLoading(false)
@@ -53,9 +55,9 @@ export default function LoginPage() {
     >
       <Card className="border-border/50 shadow-xl bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Welcome back</CardTitle>
+          <CardTitle className="text-2xl">{tr("auth.login.title")}</CardTitle>
           <CardDescription>
-            Log in to your account to continue
+            {tr("auth.login.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -71,7 +73,7 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{tr("common.email")}</Label>
               <Input
                 id="email"
                 name="email"
@@ -87,19 +89,19 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{tr("common.password")}</Label>
                 <Link 
                   href="#" 
                   className="text-sm text-primary hover:underline"
                 >
-                  Forgot password?
+                  {tr("auth.login.forgot")}
                 </Link>
               </div>
               <Input
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder={tr("auth.login.passwordPlaceholder")}
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -116,11 +118,11 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Logging in...
+                  {tr("auth.login.loggingIn")}
                 </>
               ) : (
                 <>
-                  Log in
+                  {tr("common.logIn")}
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -131,7 +133,7 @@ export default function LoginPage() {
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                <span className="bg-card px-2 text-muted-foreground">{tr("auth.login.orContinue")}</span>
               </div>
             </div>
 
@@ -144,14 +146,14 @@ export default function LoginPage() {
               </Button>
             </div>
             <p className="text-center text-xs text-muted-foreground">
-              Social login coming soon
+              {tr("auth.login.socialSoon")}
             </p>
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don&apos;t have an account? </span>
+            <span className="text-muted-foreground">{tr("auth.login.noAccount")} </span>
             <Link href="/register" className="text-primary hover:underline font-medium">
-              Sign up
+              {tr("common.signUp")}
             </Link>
           </div>
         </CardContent>

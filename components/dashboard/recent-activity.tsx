@@ -3,9 +3,10 @@
 import { motion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, MessageSquare, FileText, CheckCircle2, ExternalLink } from "lucide-react"
+import { ArrowRight, MessageSquare, FileText, CheckCircle2, ExternalLink, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { useUserActivities } from "@/hooks/use-user-data"
+import { useQuestionHistory } from "@/hooks/use-question-history"
+import { formatDistanceToNow } from "date-fns"
 
 const activityConfig = {
   question: {
@@ -26,7 +27,8 @@ const activityConfig = {
 }
 
 export function RecentActivity() {
-  const { activities, isLoaded } = useUserActivities()
+  const { getRecentItems, isLoaded } = useQuestionHistory()
+  const recentItems = getRecentItems(5)
 
   if (!isLoaded) {
     return (
@@ -62,24 +64,32 @@ export function RecentActivity() {
           </Link>
         </Button>
       </CardHeader>
+
       <CardContent>
-        {activities.length === 0 ? (
+        {recentItems.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-muted-foreground">No recent activity</p>
-            <Button asChild className="mt-4">
-              <Link href="/ask">Get started</Link>
+            <p className="text-sm text-muted-foreground mt-1">
+              Ask a question to see your activity here
+            </p>
+            <Button asChild className="mt-4 gap-2">
+              <Link href="/ask">
+                <Sparkles className="h-4 w-4" />
+                Get started
+              </Link>
             </Button>
           </div>
         ) : (
           <div className="relative">
             {/* Timeline line */}
             <div className="absolute left-5 top-2 bottom-2 w-0.5 bg-gradient-to-b from-border via-border to-transparent" />
-            
+
             <div className="space-y-4">
-              {activities.map((activity, index) => {
+              {recentItems.map((activity, index) => {
                 const config = activityConfig[activity.type]
                 const Icon = config.icon
-                
+                const timeAgo = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })
+
                 return (
                   <motion.div
                     key={activity.id}
@@ -97,12 +107,13 @@ export function RecentActivity() {
                     >
                       <Icon className="h-5 w-5" />
                     </motion.div>
-                    
+
                     <div className="flex-1 min-w-0 py-1">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-medium group-hover:text-primary transition-colors">
                           {activity.title}
                         </p>
+
                         {activity.link && (
                           <motion.div
                             initial={{ opacity: 0 }}
@@ -113,20 +124,28 @@ export function RecentActivity() {
                           </motion.div>
                         )}
                       </div>
+
                       {activity.preview && (
                         <p className="text-sm text-muted-foreground mt-0.5 truncate">
                           {activity.preview}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {activity.timestamp}
-                      </p>
+
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-muted-foreground">
+                          {timeAgo}
+                        </p>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <p className="text-xs text-muted-foreground">
+                          {activity.country}
+                        </p>
+                      </div>
                     </div>
                   </motion.div>
                 )
               })}
             </div>
-            
+
             {/* Fade out gradient at bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none" />
           </div>

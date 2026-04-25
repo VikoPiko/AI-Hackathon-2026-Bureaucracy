@@ -2,40 +2,8 @@
 
 import { motion, useInView, useMotionValue, useSpring, useTransform } from "motion/react"
 import { useRef } from "react"
+import { useI18n } from "@/lib/i18n-context"
 import { FileSearch, ListChecks, Globe2, Clock, Shield, MessageSquareText } from "lucide-react"
-
-const features = [
-  {
-    icon: FileSearch,
-    title: "Document Analysis",
-    description: "Upload any document and get instant insights. Our AI understands forms, applications, and official letters.",
-  },
-  {
-    icon: ListChecks,
-    title: "Step-by-Step Guidance",
-    description: "Get clear, numbered steps for any procedure. Know exactly what to do next and never miss a requirement.",
-  },
-  {
-    icon: Globe2,
-    title: "Multi-Country Support",
-    description: "Whether you are abroad or at home, get localized guidance for procedures across different countries.",
-  },
-  {
-    icon: Clock,
-    title: "Time Estimates",
-    description: "Know how long each step takes. Plan your time and avoid unnecessary trips or delays.",
-  },
-  {
-    icon: Shield,
-    title: "Document Checklist",
-    description: "Interactive checklists ensure you have everything ready. Track your progress and tick off completed items.",
-  },
-  {
-    icon: MessageSquareText,
-    title: "Ask Anything",
-    description: "Have a specific question? Just ask. Get instant, accurate answers about any bureaucratic process.",
-  },
-]
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,14 +22,47 @@ const itemVariants = {
     y: 0,
     transition: { 
       duration: 0.5, 
-      ease: [0.25, 0.4, 0.25, 1] 
+      ease: "easeOut" as const,
     },
   },
 }
 
 export function Features() {
+  const { translate: tr } = useI18n()
   const ref = useRef(null)
   const isInView = useInView(ref, { once: true, margin: "-50px" })
+  const features = [
+    {
+      icon: FileSearch,
+      title: tr("landing.features.items.analysisTitle"),
+      description: tr("landing.features.items.analysisDescription"),
+    },
+    {
+      icon: ListChecks,
+      title: tr("landing.features.items.guidanceTitle"),
+      description: tr("landing.features.items.guidanceDescription"),
+    },
+    {
+      icon: Globe2,
+      title: tr("landing.features.items.supportTitle"),
+      description: tr("landing.features.items.supportDescription"),
+    },
+    {
+      icon: Clock,
+      title: tr("landing.features.items.timeTitle"),
+      description: tr("landing.features.items.timeDescription"),
+    },
+    {
+      icon: Shield,
+      title: tr("landing.features.items.checklistTitle"),
+      description: tr("landing.features.items.checklistDescription"),
+    },
+    {
+      icon: MessageSquareText,
+      title: tr("landing.features.items.askTitle"),
+      description: tr("landing.features.items.askDescription"),
+    },
+  ]
 
   return (
     <section id="features" className="py-24 sm:py-32">
@@ -73,10 +74,10 @@ export function Features() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4 text-balance">
-            Everything you need to conquer paperwork
+            {tr("landing.features.title")}
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
-            Powerful features designed to make bureaucratic processes simple and stress-free.
+            {tr("landing.features.subtitle")}
           </p>
         </motion.div>
 
@@ -97,7 +98,7 @@ export function Features() {
 }
 
 interface FeatureCardProps {
-  feature: typeof features[0]
+  feature: { icon: typeof FileSearch; title: string; description: string }
   index: number
 }
 

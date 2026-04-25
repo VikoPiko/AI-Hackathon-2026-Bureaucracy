@@ -16,17 +16,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, X, Shield, Zap, Users } from "lucide-react"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
-
-const trustBadges = [
-  { icon: Shield, label: "Secure & Private" },
-  { icon: Zap, label: "Instant Analysis" },
-  { icon: Users, label: "10k+ Users" },
-]
+import { useI18n } from "@/lib/i18n-context"
 
 export default function LandingPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { canUseFreeTrial, markTrialUsed, usedTrial } = useTrial()
+  const { translate: tr, language } = useI18n()
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState<BureaucracyResponse | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
@@ -39,6 +35,11 @@ export default function LandingPage() {
   })
 
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"])
+  const trustBadges = [
+    { icon: Shield, label: tr("landing.trustBadges.secure") },
+    { icon: Zap, label: tr("landing.trustBadges.instant") },
+    { icon: Users, label: tr("landing.trustBadges.users") },
+  ]
 
   const scrollToDemo = () => {
     demoRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -57,7 +58,7 @@ export default function LandingPage() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, country: "Bulgaria" }),
+        body: JSON.stringify({ text: question, country: "BG", language }),
       })
 
       if (!res.ok) throw new Error("Failed to analyze")
@@ -149,7 +150,7 @@ export default function LandingPage() {
                       >
                         <Loader2 className="h-8 w-8 text-primary" />
                       </motion.div>
-                      <p className="text-muted-foreground">Analyzing your question...</p>
+                      <p className="text-muted-foreground">{tr("landing.loading")}</p>
                     </CardContent>
                   </Card>
                 ) : response ? (
@@ -162,7 +163,7 @@ export default function LandingPage() {
                         className="group"
                       >
                         <X className="h-4 w-4 mr-2 transition-transform group-hover:rotate-90" />
-                        Close
+                        {tr("common.close")}
                       </Button>
                     </div>
                     <AnswerDisplay response={response} />
@@ -201,10 +202,9 @@ export default function LandingPage() {
                     >
                       <Shield className="h-8 w-8 text-accent" />
                     </motion.div>
-                    <h3 className="text-xl font-semibold">Create a free account</h3>
+                    <h3 className="text-xl font-semibold">{tr("landing.authPrompt.title")}</h3>
                     <p className="text-muted-foreground">
-                      You&apos;ve used your free trial. Create an account to continue using FormWise
-                      and track your bureaucratic processes.
+                      {tr("landing.authPrompt.body")}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                       <Button 
@@ -212,13 +212,13 @@ export default function LandingPage() {
                         className="flex-1 group"
                         onClick={() => setShowLoginPrompt(false)}
                       >
-                        Maybe later
+                        {tr("landing.authPrompt.later")}
                       </Button>
                       <Button 
                         className="flex-1 group"
                         onClick={() => router.push("/register")}
                       >
-                        Create Account
+                        {tr("landing.authPrompt.create")}
                       </Button>
                     </div>
                     <Button 
@@ -226,7 +226,7 @@ export default function LandingPage() {
                       className="text-sm"
                       onClick={() => router.push("/login")}
                     >
-                      Already have an account? Log in
+                      {tr("landing.authPrompt.existing")}
                     </Button>
                   </CardContent>
                 </Card>
@@ -240,10 +240,10 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
-                FormWise - AI-powered bureaucracy navigation
+                {tr("landing.footer.product")}
               </p>
               <p className="text-sm text-muted-foreground">
-                Built for those navigating complex processes
+                {tr("landing.footer.tagline")}
               </p>
             </div>
           </div>

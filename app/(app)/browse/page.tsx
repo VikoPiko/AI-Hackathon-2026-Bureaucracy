@@ -9,9 +9,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Sparkles, ArrowRight, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useI18n } from "@/lib/i18n-context"
 
 function BrowsePageInner() {
   const router = useRouter()
+  const { translate: tr } = useI18n()
   const searchParams = useSearchParams()
   const initialCategoryId = searchParams.get("category")
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
@@ -41,15 +43,15 @@ function BrowsePageInner() {
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
       >
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Browse Procedures</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{tr("browse.title")}</h1>
           <p className="text-muted-foreground mt-1">
-            Explore all available bureaucratic procedures by category.
+            {tr("browse.subtitle")}
           </p>
         </div>
         <Button asChild variant="outline" className="gap-2 w-fit">
           <Link href="/ask">
             <Sparkles className="h-4 w-4" />
-            Ask AI Instead
+            {tr("browse.askInstead")}
           </Link>
         </Button>
       </motion.div>
@@ -60,12 +62,12 @@ function BrowsePageInner() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <Card className="bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-accent/20">
+          <Card className="bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-accent/20">
           <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-5">
             <div className="space-y-1">
-              <h3 className="font-semibold text-accent">More Countries Coming Soon</h3>
+              <h3 className="font-semibold text-accent">{tr("browse.bannerTitle")}</h3>
               <p className="text-sm text-muted-foreground">
-                We&apos;re expanding to cover more countries. Currently featuring procedures for Bulgaria.
+                {tr("browse.bannerBody")}
               </p>
             </div>
           </CardContent>
@@ -104,10 +106,10 @@ function BrowsePageInner() {
           >
             <Card className="shadow-lg border-primary/20">
               <CardContent className="p-4 flex items-center gap-3">
-                <p className="text-sm">Can&apos;t find what you need?</p>
+                <p className="text-sm">{tr("browse.prompt")}</p>
                 <Button size="sm" asChild className="gap-1">
                   <Link href="/ask">
-                    Ask AI
+                    {tr("browse.askAi")}
                     <ArrowRight className="h-3 w-3" />
                   </Link>
                 </Button>
@@ -129,8 +131,9 @@ function BrowsePageInner() {
 }
 
 export default function BrowsePage() {
+  const { translate: tr } = useI18n()
   return (
-    <Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="text-muted-foreground">{tr("browse.loading")}</div>}>
       <BrowsePageInner />
     </Suspense>
   )

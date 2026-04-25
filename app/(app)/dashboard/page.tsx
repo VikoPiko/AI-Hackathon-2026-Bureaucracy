@@ -22,42 +22,11 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useCommandPalette } from "@/components/app/command-palette"
-
-const quickActions = [
-  {
-    title: "Ask a Question",
-    description: "Get instant answers about any procedure",
-    icon: MessageSquare,
-    href: "/ask",
-    color: "bg-primary/10 text-primary hover:bg-primary/20",
-  },
-  {
-    title: "Upload Document",
-    description: "Analyze documents for guidance",
-    icon: FileText,
-    href: "/ask",
-    color:
-      "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50",
-  },
-  {
-    title: "Browse Guides",
-    description: "Explore procedure categories",
-    icon: FolderOpen,
-    href: "/browse",
-    color: "bg-accent/10 text-accent hover:bg-accent/20",
-  },
-  {
-    title: "Get Help",
-    description: "Tips and support resources",
-    icon: HelpCircle,
-    href: "/help",
-    color:
-      "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50",
-  },
-]
+import { useI18n } from "@/lib/i18n-context"
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { translate: tr } = useI18n()
   const { setOpen: openCommandPalette } = useCommandPalette()
   const [showWelcomeCard, setShowWelcomeCard] = useState(false)
   const [isFirstVisit, setIsFirstVisit] = useState(true)
@@ -79,20 +48,53 @@ export default function DashboardPage() {
 
   const greeting = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return "Good morning"
-    if (hour < 18) return "Good afternoon"
-    return "Good evening"
+    if (hour < 12) return tr("dashboard.morning")
+    if (hour < 18) return tr("dashboard.afternoon")
+    return tr("dashboard.evening")
   }
+
+  const quickActions = [
+    {
+      title: "Ask a Question",
+      description: "Get instant answers about any procedure",
+      icon: MessageSquare,
+      href: "/ask",
+      color: "bg-primary/10 text-primary hover:bg-primary/20",
+    },
+    {
+      title: "Upload Document",
+      description: "Analyze documents for guidance",
+      icon: FileText,
+      href: "/ask",
+      color:
+        "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50",
+    },
+    {
+      title: "Browse Guides",
+      description: "Explore procedure categories",
+      icon: FolderOpen,
+      href: "/browse",
+      color: "bg-accent/10 text-accent hover:bg-accent/20",
+    },
+    {
+      title: "Get Help",
+      description: "Tips and support resources",
+      icon: HelpCircle,
+      href: "/help",
+      color:
+        "bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50",
+    },
+  ]
+
+  const summaryParts = tr("dashboard.summary", { shortcut: "⌘K" }).split("⌘K")
 
   return (
     <div className="space-y-8">
-      {/* Welcome Hero with subtle mesh */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/[0.04] via-background to-accent/[0.05] px-5 py-6 sm:px-7 sm:py-8"
       >
-        {/* Decorative blobs */}
         <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-accent/10 blur-3xl" />
 
@@ -100,18 +102,18 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/60 px-2.5 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
               <Sparkles className="h-3 w-3 text-accent" />
-              <span>FormWise · AI assistant for European bureaucracy</span>
+              <span>{tr("dashboard.badge")}</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
               {greeting()},{" "}
               <span className="bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
-                {user?.name?.split(" ")[0] || "friend"}
+                {user?.name?.split(" ")[0] || tr("dashboard.friend")}
               </span>
             </h1>
             <p className="text-muted-foreground max-w-xl">
-              Here's a snapshot of your bureaucratic journey. Press{" "}
-              <Kbd className="bg-background/80 border border-border">⌘K</Kbd> any time to
-              search, navigate, or ask AI.
+              {summaryParts[0]}
+              <Kbd className="bg-background/80 border border-border">⌘K</Kbd>
+              {summaryParts[1] ?? ""}
             </p>
           </div>
 
@@ -122,7 +124,7 @@ export default function DashboardPage() {
             >
               <Link href="/ask">
                 <Sparkles className="h-4 w-4" />
-                New Question
+                {tr("dashboard.newQuestion")}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>
@@ -131,16 +133,14 @@ export default function DashboardPage() {
               onClick={() => openCommandPalette(true)}
               className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              or open command palette →
+              {tr("dashboard.openPalette")}
             </button>
           </div>
         </div>
       </motion.div>
 
-      {/* Stats Overview */}
       <StatsOverview />
 
-      {/* First Visit Welcome Card */}
       <AnimatePresence>
         {showWelcomeCard && isFirstVisit && (
           <motion.div
@@ -162,16 +162,15 @@ export default function DashboardPage() {
                 <div className="space-y-1">
                   <h3 className="font-semibold flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-accent" />
-                    Welcome to FormWise!
+                    {tr("dashboard.welcomeTitle")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Ask our AI assistant about any bureaucratic process and get
-                    step-by-step guidance.
+                    {tr("dashboard.welcomeBody")}
                   </p>
                 </div>
                 <Button asChild className="gap-2 shrink-0 group">
                   <Link href="/ask">
-                    Get Started
+                    {tr("dashboard.welcomeAction")}
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
@@ -181,7 +180,6 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* Priorities + Activity chart */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -196,13 +194,12 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Quick Actions */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
       >
-        <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-semibold mb-4">{tr("dashboard.quickActions")}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quickActions.map((action, index) => (
             <motion.div
@@ -239,7 +236,6 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

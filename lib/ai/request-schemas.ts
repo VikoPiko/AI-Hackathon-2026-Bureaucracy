@@ -9,12 +9,7 @@ export const supportedCountryCodes = Object.keys(COUNTRY_NAMES) as [
 export const supportedLanguageCodes = [
   'en',
   'de',
-  'nl',
-  'pt',
-  'es',
-  'fr',
   'bg',
-  'tr',
 ] as const satisfies readonly Language[];
 
 export const SupportedCountrySchema = z.enum(supportedCountryCodes);

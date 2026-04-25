@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "motion/react"
 import { FileText } from "lucide-react"
+import { LanguagePicker } from "@/components/language-picker"
 
 export default function AuthLayout({
   children,
@@ -25,6 +26,7 @@ export default function AuthLayout({
             </div>
             <span className="text-xl font-semibold tracking-tight">FormWise</span>
           </Link>
+          <LanguagePicker />
         </div>
       </motion.header>
 

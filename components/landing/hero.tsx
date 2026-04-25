@@ -3,6 +3,7 @@
 import { useRef } from "react"
 import { motion, useScroll, useTransform, useMotionValue, useSpring } from "motion/react"
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/lib/i18n-context"
 import { ArrowRight, Sparkles, FileText, CheckCircle } from "lucide-react"
 
 const containerVariants = {
@@ -21,7 +22,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.8, ease: "easeOut" as const },
   },
 }
 
@@ -31,7 +32,7 @@ const floatingVariants = {
     transition: {
       duration: 6,
       repeat: Infinity,
-      ease: "easeInOut",
+      ease: "easeInOut" as const,
     },
   },
 }
@@ -41,6 +42,7 @@ interface HeroProps {
 }
 
 export function Hero({ onTryDemo }: HeroProps) {
+  const { translate: tr } = useI18n()
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -116,7 +118,7 @@ export function Hero({ onTryDemo }: HeroProps) {
               className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-5 py-2 text-sm text-foreground cursor-default"
             >
               <Sparkles className="h-4 w-4 text-accent" />
-              AI-powered guidance for any process
+              {tr("landing.hero.badge")}
             </motion.span>
           </motion.div>
 
@@ -125,9 +127,9 @@ export function Hero({ onTryDemo }: HeroProps) {
             variants={itemVariants}
             className="mb-6 text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl text-balance"
           >
-            Navigate bureaucracy{" "}
+            {tr("landing.hero.titlePrefix")}{" "}
             <span className="relative">
-              <span className="text-primary">without the headache</span>
+              <span className="text-primary">{tr("landing.hero.titleHighlight")}</span>
               <motion.svg
                 initial={{ pathLength: 0, opacity: 0 }}
                 animate={{ pathLength: 1, opacity: 1 }}
@@ -153,8 +155,7 @@ export function Hero({ onTryDemo }: HeroProps) {
             variants={itemVariants}
             className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl text-pretty leading-relaxed"
           >
-            Upload documents, ask questions, and get step-by-step guidance through 
-            any administrative process. From visa applications to business permits.
+            {tr("landing.hero.subtitle")}
           </motion.p>
 
           {/* CTA Buttons */}
@@ -167,7 +168,7 @@ export function Hero({ onTryDemo }: HeroProps) {
               onClick={onTryDemo}
               className="group gap-2 text-base h-12 px-8 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
             >
-              Try it free
+              {tr("landing.hero.tryFree")}
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Button>
             <Button 
@@ -176,7 +177,7 @@ export function Hero({ onTryDemo }: HeroProps) {
               className="text-base h-12 px-8 hover:bg-secondary/80 transition-all duration-300"
               asChild
             >
-              <a href="#features">See how it works</a>
+              <a href="#features">{tr("landing.hero.seeHow")}</a>
             </Button>
           </motion.div>
 
@@ -185,7 +186,7 @@ export function Hero({ onTryDemo }: HeroProps) {
             variants={itemVariants}
             className="mt-8 text-sm text-muted-foreground"
           >
-            No credit card required. 1 free analysis to get started.
+            {tr("landing.hero.trust")}
           </motion.p>
 
           {/* Floating mini cards */}
@@ -200,8 +201,8 @@ export function Hero({ onTryDemo }: HeroProps) {
                   <FileText className="h-5 w-5 text-accent" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs text-muted-foreground">Document</p>
-                  <p className="text-sm font-medium">Analyzed</p>
+                  <p className="text-xs text-muted-foreground">{tr("landing.hero.docLabel")}</p>
+                  <p className="text-sm font-medium">{tr("landing.hero.docValue")}</p>
                 </div>
               </div>
             </motion.div>
@@ -217,8 +218,8 @@ export function Hero({ onTryDemo }: HeroProps) {
                   <CheckCircle className="h-5 w-5 text-primary" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs text-muted-foreground">Step 3 of 5</p>
-                  <p className="text-sm font-medium">Completed</p>
+                  <p className="text-xs text-muted-foreground">{tr("landing.hero.stepLabel")}</p>
+                  <p className="text-sm font-medium">{tr("landing.hero.stepValue")}</p>
                 </div>
               </div>
             </motion.div>

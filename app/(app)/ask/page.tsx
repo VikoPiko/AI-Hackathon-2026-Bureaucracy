@@ -11,10 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Lightbulb, X, RotateCcw, AlertCircle, MessageCircle, ChevronRight, Clock, MapPin } from "lucide-react";
+import { Loader2, Lightbulb, X, RotateCcw, AlertCircle, MessageCircle, ChevronRight, Clock, MapPin, HelpCircle, Search, History, RefreshCw } from "lucide-react";
 import type { BureaucracyResponse } from "@/lib/ai/schemas";
 import { getCountryName } from "@/components/app/country-selector";
 import { format } from "date-fns";
+import { useI18n } from "@/lib/i18n-context";
+import { useQuestionHistory, validateQuestion, type QuestionHistoryItem } from "@/hooks/use-question-history";
 
 // Document Risk response type
 interface DocumentRiskResponse {
@@ -49,36 +51,42 @@ interface SuggestedFollowUp {
   category: string;
 }
 
-const suggestions = [
-  "How do I get a residence permit?",
-  "What documents do I need to register a company?",
-  "How to apply for a work visa?",
-  "What is the process to renew my passport?",
-];
-
-// Default follow-up suggestions based on procedure type
-const defaultFollowUps: Record<string, SuggestedFollowUp[]> = {
-  default: [
-    { question: "What are the exact requirements?", category: "Requirements" },
-    { question: "How long does this take?", category: "Timeline" },
-    { question: "What is the total cost?", category: "Costs" },
-    { question: "Where exactly do I need to go?", category: "Location" },
-  ],
-  visa: [
-    { question: "Can I work with this visa?", category: "Work Rights" },
-    { question: "Can I bring my family?", category: "Family" },
-    { question: "What happens if my application is rejected?", category: "Rejection" },
-  ],
-  permit: [
-    { question: "Can I extend this permit?", category: "Extension" },
-    { question: "What are the conditions for renewal?", category: "Renewal" },
-    { question: "Can I change my status?", category: "Status Change" },
-  ],
-};
-
 function AskPageInner() {
   const searchParams = useSearchParams();
+  const { translate: tr, language } = useI18n();
   const initialQ = searchParams.get("q") ?? "";
+  const historyId = searchParams.get("historyId");
+  
+  // Question history hook
+  const { addQuestion, history } = useQuestionHistory();
+  
+  // State for loaded history item
+  const [loadedHistoryItem, setLoadedHistoryItem] = useState<QuestionHistoryItem | null>(null);
+  
+  const suggestions = [
+    tr("askPage.suggestions.s1"),
+    tr("askPage.suggestions.s2"),
+    tr("askPage.suggestions.s3"),
+    tr("askPage.suggestions.s4"),
+  ];
+  const defaultFollowUps: Record<string, SuggestedFollowUp[]> = {
+    default: [
+      { question: tr("askPage.followUps.requirements"), category: tr("askPage.followUps.catRequirements") },
+      { question: tr("askPage.followUps.timeline"), category: tr("askPage.followUps.catTimeline") },
+      { question: tr("askPage.followUps.cost"), category: tr("askPage.followUps.catCosts") },
+      { question: tr("askPage.followUps.location"), category: tr("askPage.followUps.catLocation") },
+    ],
+    visa: [
+      { question: tr("askPage.followUps.visaWork"), category: tr("askPage.followUps.catWorkRights") },
+      { question: tr("askPage.followUps.visaFamily"), category: tr("askPage.followUps.catFamily") },
+      { question: tr("askPage.followUps.visaRejection"), category: tr("askPage.followUps.catRejection") },
+    ],
+    permit: [
+      { question: tr("askPage.followUps.permitExtend"), category: tr("askPage.followUps.catExtension") },
+      { question: tr("askPage.followUps.permitRenewal"), category: tr("askPage.followUps.catRenewal") },
+      { question: tr("askPage.followUps.permitStatus"), category: tr("askPage.followUps.catStatusChange") },
+    ],
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [bureaucracyResponse, setBureaucracyResponse] = useState<BureaucracyResponse & { _generatedAt?: string } | null>(null);
   const [documentAnalysis, setDocumentAnalysis] = useState<DocumentRiskResponse | null>(null);
@@ -86,6 +94,10 @@ function AskPageInner() {
   const [lastCountry, setLastCountry] = useState<string>("BG");
   const [prefill, setPrefill] = useState<string>(initialQ);
   const [needsMoreInfo, setNeedsMoreInfo] = useState<boolean>(false);
+  
+  // Question validation state
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationSuggestions, setValidationSuggestions] = useState<string[]>([]);
 
   // Conversation history state
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
@@ -107,11 +119,44 @@ function AskPageInner() {
     }
   }, [conversationHistory, showConversation, scrollToBottom]);
 
+  // Load history item when historyId is provided
+  useEffect(() => {
+    if (historyId && history.length > 0) {
+      const item = history.find(h => h.id === historyId);
+      if (item) {
+        setLoadedHistoryItem(item);
+        setPrefill(item.fullQuestion);
+        setLastCountry(item.country);
+        setShowConversation(true);
+        
+        // Load the response
+        if (item.response) {
+          setBureaucracyResponse(item.response as BureaucracyResponse & { _generatedAt?: string });
+        }
+        
+        // Add to conversation history
+        const userMessage: ConversationMessage = {
+          id: item.id,
+          role: "user",
+          content: item.fullQuestion,
+          timestamp: new Date(item.timestamp),
+          country: item.country,
+          response: item.response as BureaucracyResponse,
+        };
+        setConversationHistory([userMessage]);
+        
+        toast.info("Loaded from history", {
+          description: "You can continue this conversation or ask a follow-up.",
+        });
+      }
+    }
+  }, [historyId, history]);
+
   const handleSubmit = async (question: string, file?: File, country?: string) => {
     // Validate that country is selected
     if (!country) {
-      toast.error("Please select a country", {
-        description: "This helps us provide accurate information.",
+      toast.error(tr("askPage.selectCountry"), {
+        description: tr("askPage.selectCountryDescription"),
       });
       return;
     }
@@ -144,8 +189,8 @@ function AskPageInner() {
 
     const countryName = getCountryName(country);
     
-    const loadingToast = toast.loading(`Analyzing for ${countryName}...`, {
-      description: "FormWise is searching the knowledge base and official sources.",
+    const loadingToast = toast.loading(tr("askPage.loadingFor", { country: countryName }), {
+      description: tr("askPage.loadingDescription"),
     });
 
     try {
@@ -195,7 +240,7 @@ function AskPageInner() {
         body: JSON.stringify({
           text: documentText || question,
           country: country,
-          language: "en",
+          language,
         }),
       });
 
@@ -209,48 +254,49 @@ function AskPageInner() {
       // Check if the response indicates insufficient information
       if (data._needsMoreInfo || (data.risk_level === 'unknown' && data._rawContent?.includes('more specific'))) {
         setNeedsMoreInfo(true);
-        setError(`We need more specific information about your question for ${countryName}.`);
+        setError(tr("askPage.needSpecificInfo", { country: countryName }));
         toast.dismiss(loadingToast);
-        toast.info("Please provide more details", {
-          description: `For ${countryName}, we need specific details to help you better.`,
+        toast.info(tr("askPage.detailPrompt"), {
+          description: tr("askPage.moreInfoBody", { country: countryName }),
         });
         return;
       }
 
       // Check if it's document analysis response (has risk_level) or procedure response (has steps)
       if (data.risk_level) {
-        // Document risk analysis response
+        // Document risk analysis response - save to localStorage
+        addQuestion(documentText || question, data, country, language, true);
         setDocumentAnalysis(data);
-        toast.success("Analysis complete", {
+        toast.success(tr("askPage.analysisComplete"), {
           id: loadingToast,
-          description: `Document analyzed for ${countryName} jurisdiction.`,
+          description: tr("askPage.analysisDoneFor", { country: countryName }),
         });
       } else if (data.response) {
         // Bureaucracy procedure response (wrapped in response)
         setBureaucracyResponse(data.response);
-        toast.success("Answer ready", {
+        toast.success(tr("askPage.answerReady"), {
           id: loadingToast,
-          description: `Procedure information for ${countryName}.`,
+          description: tr("askPage.procedureInfoFor", { country: countryName }),
         });
       } else if (data.procedureName || data.steps) {
         // Direct procedure response
         setBureaucracyResponse(data);
-        toast.success("Answer ready", {
+        toast.success(tr("askPage.answerReady"), {
           id: loadingToast,
-          description: `Procedure information for ${countryName}.`,
+          description: tr("askPage.procedureInfoFor", { country: countryName }),
         });
       } else {
         // Unexpected response format
         setNeedsMoreInfo(true);
-        setError(`We couldn't find specific information for ${countryName}. Please try a more specific question or check if you're asking about the correct country.`);
+        setError(tr("askPage.missingSpecificInfo", { country: countryName }));
         toast.dismiss(loadingToast);
       }
     } catch (err) {
       console.error("Analysis error:", err);
-      setError("Failed to analyze your question. Please try again.");
-      toast.error("Couldn't fetch the answer", {
+      setError(tr("askPage.failedAnalyze"));
+      toast.error(tr("askPage.failedAnswer"), {
         id: loadingToast,
-        description: "Check your connection and try again.",
+        description: tr("askPage.checkConnection"),
       });
     } finally {
       setIsLoading(false);
@@ -260,7 +306,7 @@ function AskPageInner() {
   // Handle follow-up question from suggestion
   const handleFollowUp = async (followUpQuestion: string) => {
     if (!lastCountry) {
-      toast.error("Please select a country first");
+      toast.error(tr("askPage.selectCountryFirst"));
       return;
     }
     setPrefill(followUpQuestion);
@@ -270,11 +316,30 @@ function AskPageInner() {
   // Handle submitting from input (with conversation context)
   const handleInputSubmit = async (question: string, file?: File, country?: string) => {
     if (!country) {
-      toast.error("Please select a country", {
-        description: "This helps us provide accurate information.",
+      toast.error(tr("askPage.selectCountry"), {
+        description: tr("askPage.selectCountryDescription"),
       });
       return;
     }
+
+    // Validate question before submitting
+    const validation = validateQuestion(question, country);
+    if (!validation.isValid) {
+      setValidationError(validation.missingInfo.join(" "));
+      setValidationSuggestions(validation.suggestions);
+      setError(validation.missingInfo[0] || "Please provide more details");
+      setNeedsMoreInfo(true);
+      
+      toast.warning("Question needs more details", {
+        description: validation.missingInfo[0] || "Please be more specific",
+      });
+      return;
+    }
+    
+    // Clear validation state
+    setValidationError(null);
+    setValidationSuggestions([]);
+    setNeedsMoreInfo(false);
 
     setIsLoading(true);
     setError(null);
@@ -282,7 +347,6 @@ function AskPageInner() {
     setPrefill("");
     setBureaucracyResponse(null);
     setDocumentAnalysis(null);
-    setNeedsMoreInfo(false);
 
     // Generate unique ID for this question
     const questionId = `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -301,8 +365,8 @@ function AskPageInner() {
 
     const countryName = getCountryName(country);
     
-    const loadingToast = toast.loading(`Searching for ${countryName}...`, {
-      description: "FormWise is providing detailed guidance.",
+    const loadingToast = toast.loading(tr("askPage.searchingFor", { country: countryName }), {
+      description: tr("askPage.providingGuidance"),
     });
 
     try {
@@ -340,7 +404,7 @@ function AskPageInner() {
         body: JSON.stringify({
           text: documentText || question,
           country: country,
-          language: "en",
+          language,
           conversationHistory: contextMessages,
           isFollowUp: contextMessages.length > 0,
         }),
@@ -358,11 +422,14 @@ function AskPageInner() {
         const assistantMessage: ConversationMessage = {
           id: `a-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: data.response.summary || data.response._rawContent || "Response received",
+          content: data.response.summary || data.response._rawContent || tr("askPage.responseReceived"),
           timestamp: new Date(),
           country,
           response: data.response,
         };
+
+        // Save to localStorage history
+        addQuestion(question, data.response, country, language, false);
 
         setConversationHistory(prev => [...prev, assistantMessage]);
         setBureaucracyResponse(data.response);
@@ -382,19 +449,22 @@ function AskPageInner() {
           setShowConversation(true);
         }
 
-        toast.success("Detailed answer ready", {
+        toast.success(tr("askPage.detailedReady"), {
           id: loadingToast,
-          description: `Information for ${countryName}: ${data.response.procedureName}`,
+          description: tr("askPage.detailedInfoFor", {
+            country: countryName,
+            procedure: data.response.procedureName,
+          }),
         });
       } else if (data.error) {
         throw new Error(data.error);
       }
     } catch (err) {
       console.error("Ask error:", err);
-      setError("Failed to get answer. Please try again.");
-      toast.error("Couldn't fetch the answer", {
+      setError(tr("askPage.failedAnswer"));
+      toast.error(tr("askPage.failedAnswer"), {
         id: loadingToast,
-        description: "Check your connection and try again.",
+        description: tr("askPage.checkConnection"),
       });
     } finally {
       setIsLoading(false);
@@ -419,6 +489,7 @@ function AskPageInner() {
     setConversationHistory([]);
     setShowConversation(false);
     setCurrentQuestionId(null);
+    setLoadedHistoryItem(null);
   };
 
   const toggleConversation = () => {
@@ -435,9 +506,9 @@ function AskPageInner() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Ask FormWise</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{tr("askPage.title")}</h1>
             <p className="text-muted-foreground">
-              Ask any question about bureaucratic procedures and get detailed, source-backed guidance.
+              {tr("askPage.subtitle")}
             </p>
           </div>
           {conversationHistory.length > 0 && (
@@ -448,7 +519,7 @@ function AskPageInner() {
               className="gap-2"
             >
               <MessageCircle className="h-4 w-4" />
-              {showConversation ? "Hide History" : "Show History"}
+              {showConversation ? tr("askPage.hideHistory") : tr("askPage.showHistory")}
               {conversationHistory.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
                   {conversationHistory.length}
@@ -471,13 +542,21 @@ function AskPageInner() {
             <Card className="max-h-[500px] overflow-y-auto">
               <CardHeader className="pb-3 sticky top-0 bg-card z-10">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-primary" />
-                    Conversation History
-                  </CardTitle>
+                    <CardTitle className="text-lg">
+                      {loadedHistoryItem ? "Continuing from history" : tr("askPage.historyTitle")}
+                    </CardTitle>
+                    {loadedHistoryItem && (
+                      <Badge variant="outline" className="text-xs">
+                        <History className="h-3 w-3 mr-1" />
+                        {loadedHistoryItem.country}
+                      </Badge>
+                    )}
+                  </div>
                   <Button variant="ghost" size="sm" onClick={handleReset} className="gap-2">
                     <RotateCcw className="h-4 w-4" />
-                    Clear
+                    {tr("common.clear")}
                   </Button>
                 </div>
               </CardHeader>
@@ -501,7 +580,7 @@ function AskPageInner() {
                         <span className={`text-xs font-medium ${
                           msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
                         }`}>
-                          {msg.role === 'user' ? 'You' : 'FormWise'}
+                          {msg.role === 'user' ? tr("askPage.you") : 'FormWise'}
                         </span>
                         <span className={`text-xs ${
                           msg.role === 'user' ? 'text-primary-foreground/50' : 'text-muted-foreground/50'
@@ -565,7 +644,7 @@ function AskPageInner() {
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Lightbulb className="h-4 w-4" />
-              <span>Try asking about:</span>
+              <span>{tr("askPage.suggestionsLabel")}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion) => (
@@ -599,9 +678,9 @@ function AskPageInner() {
                   <div className="absolute inset-0 h-10 w-10 animate-ping rounded-full bg-primary/20" />
                 </div>
                 <div className="text-center">
-                  <p className="font-medium">Searching official sources...</p>
+                  <p className="font-medium">{tr("askPage.searchingSources")}</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    FormWise is compiling detailed guidance with legal references
+                    {tr("askPage.compiling")}
                   </p>
                 </div>
               </CardContent>
@@ -625,11 +704,11 @@ function AskPageInner() {
                   <p className="font-medium text-amber-800 dark:text-amber-200">{error}</p>
                   {needsMoreInfo && (
                     <p className="text-sm text-muted-foreground mt-2">
-                      Try including specific details like:
+                      {tr("askPage.moreInfoTips.intro")}
                       <ul className="mt-2 text-left list-disc list-inside text-xs">
-                        <li>The exact type of procedure (e.g., "work permit" not just "work")</li>
-                        <li>Your nationality or current status</li>
-                        <li>Specific city or region if relevant</li>
+                        <li>{tr("askPage.moreInfoTips.one")}</li>
+                        <li>{tr("askPage.moreInfoTips.two")}</li>
+                        <li>{tr("askPage.moreInfoTips.three")}</li>
                       </ul>
                     </p>
                   )}
@@ -640,7 +719,7 @@ function AskPageInner() {
                   onClick={() => setNeedsMoreInfo(false)}
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Try Again
+                  {tr("common.tryAgain")}
                 </Button>
               </CardContent>
             </Card>
@@ -682,7 +761,9 @@ function AskPageInner() {
                 </Badge>
                 {bureaucracyResponse._generatedAt && (
                   <span>
-                    Last updated: {format(new Date(bureaucracyResponse._generatedAt), 'MMM d, yyyy')}
+                    {tr("askPage.lastUpdated", {
+                      date: format(new Date(bureaucracyResponse._generatedAt), 'MMM d, yyyy'),
+                    })}
                   </span>
                 )}
               </div>
@@ -694,7 +775,7 @@ function AskPageInner() {
                   className="gap-2"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  View in Chat
+                  {tr("askPage.viewInChat")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -703,7 +784,7 @@ function AskPageInner() {
                   className="gap-2"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  New Question
+                  {tr("askPage.newQuestion")}
                 </Button>
               </div>
             </div>
@@ -715,10 +796,10 @@ function AskPageInner() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Lightbulb className="h-5 w-5 text-primary" />
-                  Follow-up Questions
+                  {tr("askPage.followUpTitle")}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Ask a follow-up question to get more specific details
+                  {tr("askPage.followUpSubtitle")}
                 </p>
               </CardHeader>
               <CardContent>

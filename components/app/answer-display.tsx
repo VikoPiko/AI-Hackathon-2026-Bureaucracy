@@ -3,9 +3,9 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
@@ -709,19 +709,39 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
 
                       return (
                         <AccordionItem key={idx} value={`doc-${idx}`}>
-                          <AccordionTrigger 
-                            className={`hover:no-underline ${isChecked ? 'opacity-60' : ''}`}
-                          >
-                            <div 
-                              className="flex items-center gap-3 cursor-pointer"
+                          <div className="flex items-center w-full">
+                            {/* Checkbox outside of AccordionTrigger to avoid nested buttons */}
+                            <button
+                              type="button"
+                              role="checkbox"
+                              aria-checked={isChecked}
                               onClick={() => toggleDoc(doc.name)}
+                              className="flex-shrink-0 mr-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  toggleDoc(doc.name)
+                                }
+                              }}
                             >
-                              <Checkbox 
-                                checked={isChecked}
-                                className="cursor-pointer"
-                              />
+                              <div className={cn(
+                                "h-5 w-5 rounded border-2 transition-all flex items-center justify-center",
+                                isChecked 
+                                  ? "bg-primary border-primary text-primary-foreground" 
+                                  : "border-input bg-background hover:border-primary/50"
+                              )}>
+                                {isChecked && (
+                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
+                            </button>
+                            <AccordionTrigger 
+                              className={`hover:no-underline flex-1 ${isChecked ? 'opacity-60' : ''}`}
+                            >
                               <div className="text-left">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className={`font-medium ${isChecked ? "line-through text-muted-foreground" : ""}`}>
                                     {doc.name}
                                   </span>
@@ -736,8 +756,8 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                                   )}
                                 </div>
                               </div>
-                            </div>
-                          </AccordionTrigger>
+                            </AccordionTrigger>
+                          </div>
                           <AccordionContent>
                             <div className="pl-10 space-y-3 text-sm">
                               <p className="text-muted-foreground">{doc.description}</p>

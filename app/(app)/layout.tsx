@@ -6,7 +6,7 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "motion/react"
 import { useAuth } from "@/lib/auth/context"
 import { Button } from "@/components/ui/button"
-import { CountrySelector } from "@/components/landing/country-selector"
+import { LanguagePicker } from "@/components/language-picker"
 import {
   FileText,
   MessageSquare,
@@ -23,13 +23,7 @@ import {
 import { cn } from "@/lib/utils"
 import { ThemePicker } from "@/components/ui/theme-picker"
 import { useCommandPalette } from "@/components/app/command-palette"
-
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, hint: "G D" },
-  { href: "/ask", label: "Ask", icon: MessageSquare, hint: "G A" },
-  { href: "/browse", label: "Browse", icon: FolderOpen, hint: "G B" },
-  { href: "/history", label: "History", icon: History, hint: "G H" },
-]
+import { useI18n } from "@/lib/i18n-context"
 
 export default function AppLayout({
   children,
@@ -39,6 +33,7 @@ export default function AppLayout({
   const router = useRouter()
   const pathname = usePathname()
   const { user, isLoading, logout } = useAuth()
+  const { translate: tr } = useI18n()
   const { setOpen: openCommandPalette } = useCommandPalette()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -61,7 +56,6 @@ export default function AppLayout({
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // Quick "g + key" navigation shortcuts
   useEffect(() => {
     let lastG = 0
     const onKey = (e: KeyboardEvent) => {
@@ -69,10 +63,12 @@ export default function AppLayout({
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         return
       }
+
       if (e.key.toLowerCase() === "g") {
         lastG = Date.now()
         return
       }
+
       if (Date.now() - lastG < 700) {
         const key = e.key.toLowerCase()
         const map: Record<string, string> = { d: "/dashboard", a: "/ask", b: "/browse", h: "/history" }
@@ -83,6 +79,7 @@ export default function AppLayout({
         }
       }
     }
+
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [router])
@@ -90,7 +87,7 @@ export default function AppLayout({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <div className="animate-pulse text-muted-foreground">{tr("common.loading")}</div>
       </div>
     )
   }
@@ -98,6 +95,13 @@ export default function AppLayout({
   if (!user) {
     return null
   }
+
+  const navItems = [
+    { href: "/dashboard", label: tr("nav.dashboard"), icon: LayoutDashboard, hint: "G D" },
+    { href: "/ask", label: tr("nav.ask"), icon: MessageSquare, hint: "G A" },
+    { href: "/browse", label: tr("nav.browse"), icon: FolderOpen, hint: "G B" },
+    { href: "/history", label: tr("nav.history"), icon: History, hint: "G H" },
+  ]
 
   const handleLogout = () => {
     logout()
@@ -114,7 +118,6 @@ export default function AppLayout({
 
   return (
     <div className="min-h-screen flex">
-      {/* Mobile sidebar overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -127,16 +130,14 @@ export default function AppLayout({
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 border-r border-sidebar-border bg-sidebar flex-col transition-[width,transform] duration-300",
           "lg:static lg:flex lg:translate-x-0",
           collapsed ? "lg:w-[76px] w-64" : "w-64",
-          sidebarOpen ? "flex translate-x-0" : "-translate-x-full lg:translate-x-0"
+          sidebarOpen ? "flex translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
-        {/* Sidebar Header */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2 group">
             <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-md shadow-primary/20 transition-transform group-hover:scale-105">
@@ -146,7 +147,7 @@ export default function AppLayout({
             <span
               className={cn(
                 "text-xl font-semibold tracking-tight transition-opacity",
-                collapsed && "lg:hidden"
+                collapsed && "lg:hidden",
               )}
             >
               FormWise
@@ -157,31 +158,30 @@ export default function AppLayout({
             size="icon"
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden"
-            aria-label="Close menu"
+            aria-label={tr("appShell.closeMenu")}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Search trigger */}
         <div className={cn("px-3 pt-3", collapsed && "lg:px-2")}>
           <button
             type="button"
             onClick={() => openCommandPalette(true)}
             className={cn(
               "group flex w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/60 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/30 hover:bg-background hover:text-foreground",
-              collapsed && "lg:justify-center lg:px-2"
+              collapsed && "lg:justify-center lg:px-2",
             )}
-            aria-label="Open command palette"
+            aria-label={tr("appShell.openCommandPalette")}
           >
             <Search className="h-4 w-4 shrink-0" />
             <span className={cn("flex-1 text-left", collapsed && "lg:hidden")}>
-              Search or ask...
+              {tr("appShell.searchPlaceholder")}
             </span>
             <kbd
               className={cn(
                 "hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-flex",
-                collapsed && "lg:hidden"
+                collapsed && "lg:hidden",
               )}
             >
               ⌘K
@@ -189,7 +189,6 @@ export default function AppLayout({
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className={cn("flex-1 space-y-1 p-3 pt-4", collapsed && "lg:px-2")}>
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -204,7 +203,7 @@ export default function AppLayout({
                   isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
                     : "text-sidebar-foreground hover:bg-sidebar-accent/60",
-                  collapsed && "lg:justify-center lg:px-2"
+                  collapsed && "lg:justify-center lg:px-2",
                 )}
               >
                 {isActive && (
@@ -219,7 +218,7 @@ export default function AppLayout({
                 <kbd
                   className={cn(
                     "hidden rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 sm:inline-block",
-                    collapsed && "lg:hidden"
+                    collapsed && "lg:hidden",
                   )}
                 >
                   {item.hint}
@@ -229,27 +228,26 @@ export default function AppLayout({
           })}
         </nav>
 
-        {/* Sidebar Footer */}
         <div className="border-t border-sidebar-border p-3 space-y-2">
           <button
             type="button"
             onClick={toggleCollapsed}
             className={cn(
               "hidden w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground lg:flex",
-              collapsed && "lg:justify-center lg:px-2"
+              collapsed && "lg:justify-center lg:px-2",
             )}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? tr("appShell.expand") : tr("appShell.collapse")}
           >
             <ChevronLeft
               className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
             />
-            <span className={cn(collapsed && "lg:hidden")}>Collapse</span>
+            <span className={cn(collapsed && "lg:hidden")}>{tr("appShell.collapse")}</span>
           </button>
 
           <div
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2",
-              collapsed && "lg:justify-center lg:px-1"
+              collapsed && "lg:justify-center lg:px-1",
             )}
           >
             <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-primary font-semibold ring-2 ring-background">
@@ -266,18 +264,18 @@ export default function AppLayout({
               variant="ghost"
               size="sm"
               className={cn("flex-1 justify-start gap-2", collapsed && "lg:justify-center lg:px-0")}
-              title="Settings"
+              title={tr("appShell.settings")}
             >
               <Settings className="h-4 w-4" />
-              <span className={cn(collapsed && "lg:hidden")}>Settings</span>
+              <span className={cn(collapsed && "lg:hidden")}>{tr("appShell.settings")}</span>
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleLogout}
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              title="Log out"
-              aria-label="Log out"
+              title={tr("appShell.logout")}
+              aria-label={tr("appShell.logout")}
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -285,13 +283,11 @@ export default function AppLayout({
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
         <header
           className={cn(
             "sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/70 backdrop-blur-lg px-4 sm:px-6 transition-shadow duration-300",
-            scrolled && "shadow-sm shadow-black/[0.03]"
+            scrolled && "shadow-sm shadow-black/[0.03]",
           )}
         >
           <Button
@@ -299,7 +295,7 @@ export default function AppLayout({
             size="icon"
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden"
-            aria-label="Open menu"
+            aria-label={tr("appShell.openMenu")}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -310,7 +306,7 @@ export default function AppLayout({
             className="hidden md:inline-flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-primary/30 hover:bg-secondary"
           >
             <Search className="h-4 w-4" />
-            <span>Search procedures, ask AI...</span>
+            <span>{tr("appShell.searchFull")}</span>
             <kbd className="ml-2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               ⌘K
             </kbd>
@@ -319,10 +315,9 @@ export default function AppLayout({
           <div className="flex-1" />
 
           <ThemePicker />
-          <CountrySelector />
+          <LanguagePicker />
         </header>
 
-        {/* Page Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

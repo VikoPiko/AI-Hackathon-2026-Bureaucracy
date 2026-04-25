@@ -3,13 +3,15 @@
 import Link from "next/link"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
-import { CountrySelector } from "./country-selector"
+import { LanguagePicker } from "@/components/language-picker"
 import { ThemePicker } from "@/components/ui/theme-picker"
 import { useAuth } from "@/lib/auth/context"
+import { useI18n } from "@/lib/i18n-context"
 import { FileText } from "lucide-react"
 
 export function Header() {
   const { user, isLoading } = useAuth()
+  const { translate: tr } = useI18n()
 
   return (
     <motion.header 
@@ -28,21 +30,21 @@ export function Header() {
 
         <div className="flex items-center gap-2 sm:gap-4">
           <ThemePicker />
-          <CountrySelector />
+          <LanguagePicker />
           
           {!isLoading && (
             <>
               {user ? (
                 <Button asChild size="sm">
-                  <Link href="/dashboard">Dashboard</Link>
+                  <Link href="/dashboard">{tr("header.dashboard")}</Link>
                 </Button>
               ) : (
                 <>
                   <Button variant="ghost" size="sm" asChild>
-                    <Link href="/login">Log in</Link>
+                    <Link href="/login">{tr("header.login")}</Link>
                   </Button>
                   <Button size="sm" asChild>
-                    <Link href="/register">Get Started</Link>
+                    <Link href="/register">{tr("header.getStarted")}</Link>
                   </Button>
                 </>
               )}

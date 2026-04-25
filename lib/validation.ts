@@ -14,7 +14,7 @@ export const countryCodeSchema = z.enum([
 export type CountryCode = z.infer<typeof countryCodeSchema>;
 
 // Language code validation
-export const languageCodeSchema = z.enum(['en', 'bg', 'de', 'nl', 'pt', 'es', 'fr', 'tr']);
+export const languageCodeSchema = z.enum(['en', 'bg', 'de']);
 
 // Ingest request validation
 export const ingestRequestSchema = z.object({

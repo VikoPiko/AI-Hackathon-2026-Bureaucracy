@@ -1,77 +1,65 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { motion } from "motion/react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, MessageSquare, FileText, Calendar, ArrowRight } from "lucide-react"
+import { Search, MessageSquare, FileText, Calendar, ArrowRight, Trash2, Sparkles, Edit3, RefreshCw } from "lucide-react"
 import Link from "next/link"
-
-interface HistoryItem {
-  id: string
-  type: "question" | "document"
-  title: string
-  preview: string
-  date: string
-  status?: "completed" | "in-progress"
-}
-
-const historyItems: HistoryItem[] = [
-  {
-    id: "1",
-    type: "question",
-    title: "Residence Permit Renewal",
-    preview: "How do I renew my residence permit before it expires in Bulgaria?",
-    date: "Dec 10, 2024",
-    status: "completed",
-  },
-  {
-    id: "2",
-    type: "document",
-    title: "Passport Scan Analysis",
-    preview: "Analyzed passport document for validity check",
-    date: "Dec 8, 2024",
-    status: "completed",
-  },
-  {
-    id: "3",
-    type: "question",
-    title: "Work Permit Requirements",
-    preview: "What documents do I need to apply for a work permit in Bulgaria?",
-    date: "Dec 5, 2024",
-    status: "in-progress",
-  },
-  {
-    id: "4",
-    type: "question",
-    title: "Business Registration",
-    preview: "How to register a company as a foreigner?",
-    date: "Nov 28, 2024",
-    status: "completed",
-  },
-  {
-    id: "5",
-    type: "document",
-    title: "Bank Statement Review",
-    preview: "Analyzed bank statement for visa application",
-    date: "Nov 25, 2024",
-    status: "completed",
-  },
-]
+import { useI18n } from "@/lib/i18n-context"
+import { useQuestionHistory, type QuestionHistoryItem } from "@/hooks/use-question-history"
 
 export default function HistoryPage() {
+  const router = useRouter()
+  const { translate: tr } = useI18n()
+  const { history, isLoaded, deleteQuestion, clearHistory, searchHistory } = useQuestionHistory()
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
 
-  const filteredItems = historyItems.filter((item) => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.preview.toLowerCase().includes(searchQuery.toLowerCase())
+  // Handle clicking on a history item to continue the conversation
+  const handleItemClick = (item: QuestionHistoryItem) => {
+    // Navigate to ask page with the question pre-filled
+    const encodedQuestion = encodeURIComponent(item.fullQuestion)
+    router.push(`/ask?q=${encodedQuestion}&country=${item.country}&historyId=${item.id}`)
+  }
+
+  // Filter based on search and tab
+  const filteredItems = searchHistory(searchQuery).filter((item) => {
     const matchesTab = activeTab === "all" || item.type === activeTab
-    return matchesSearch && matchesTab
+    return matchesTab
   })
+
+  // Loading state
+  if (!isLoaded) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-2"
+        >
+          <h1 className="text-3xl font-bold tracking-tight">{tr("history.title")}</h1>
+          <p className="text-muted-foreground">
+            {tr("history.subtitle")}
+          </p>
+        </motion.div>
+
+        <Card className="p-12">
+          <CardContent className="flex flex-col items-center justify-center text-center pt-6">
+            <div className="space-y-4 w-full max-w-md">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -81,10 +69,41 @@ export default function HistoryPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-2"
       >
-        <h1 className="text-3xl font-bold tracking-tight">History</h1>
-        <p className="text-muted-foreground">
-          Browse your past questions and document analyses.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">{tr("history.title")}</h1>
+            <p className="text-muted-foreground">
+              {tr("history.subtitle")}
+            </p>
+          </div>
+          {history.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm("Are you sure you want to clear all history?")) {
+                  clearHistory()
+                }
+              }}
+              className="gap-2 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear All
+            </Button>
+          )}
+        </div>
+        
+        {/* Stats Summary */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-4 w-4" />
+            {history.filter(h => h.type === "question").length} questions
+          </span>
+          <span className="flex items-center gap-1">
+            <FileText className="h-4 w-4" />
+            {history.filter(h => h.type === "document").length} documents
+          </span>
+        </div>
       </motion.div>
 
       {/* Search and Filter */}
@@ -97,7 +116,7 @@ export default function HistoryPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search history..."
+            placeholder={tr("history.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -106,9 +125,15 @@ export default function HistoryPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="question">Questions</TabsTrigger>
-            <TabsTrigger value="document">Documents</TabsTrigger>
+            <TabsTrigger value="all">
+              {tr("common.all")} ({history.length})
+            </TabsTrigger>
+            <TabsTrigger value="question">
+              {tr("common.questions")} ({history.filter(h => h.type === "question").length})
+            </TabsTrigger>
+            <TabsTrigger value="document">
+              {tr("common.documents")} ({history.filter(h => h.type === "document").length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-4">
@@ -116,10 +141,23 @@ export default function HistoryPage() {
               <Card className="p-12">
                 <CardContent className="flex flex-col items-center justify-center text-center pt-6">
                   <Search className="h-10 w-10 text-muted-foreground mb-4" />
-                  <h3 className="font-medium">No results found</h3>
+                  <h3 className="font-medium">
+                    {searchQuery ? tr("common.noResults") : "No history yet"}
+                  </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Try adjusting your search or filter criteria.
+                    {searchQuery 
+                      ? tr("history.noResultsBody")
+                      : "Start asking questions to build your history"
+                    }
                   </p>
+                  {!searchQuery && (
+                    <Button asChild className="mt-4 gap-2">
+                      <Link href="/ask">
+                        <Sparkles className="h-4 w-4" />
+                        Ask your first question
+                      </Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -131,12 +169,15 @@ export default function HistoryPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Card className="hover:border-primary/30 transition-colors cursor-pointer">
+                    <Card 
+                      className="hover:border-primary/30 transition-colors cursor-pointer group"
+                      onClick={() => handleItemClick(item)}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-4">
                           <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
-                            item.type === "question" 
-                              ? "bg-primary/10 text-primary" 
+                            item.type === "question"
+                              ? "bg-primary/10 text-primary"
                               : "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
                           }`}>
                             {item.type === "question" ? (
@@ -145,25 +186,29 @@ export default function HistoryPage() {
                               <FileText className="h-5 w-5" />
                             )}
                           </div>
-                          
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="font-medium">{item.title}</h3>
-                              {item.status && (
-                                <Badge 
-                                  variant="outline"
-                                  className={item.status === "completed" 
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" 
+                              <Badge variant="outline" className="text-xs">
+                                {item.country}
+                              </Badge>
+<Badge 
+                                variant="outline"
+                                className={`text-xs ${
+                                  item.status === "completed"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                                     : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                                  }
-                                >
-                                  {item.status === "completed" ? "Completed" : "In Progress"}
-                                </Badge>
-                              )}
+                                }`}
+                              >
+                                {item.status === "completed" ? tr("common.completed") : tr("common.inProgress")}
+                              </Badge>
                             </div>
+
                             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                               {item.preview}
                             </p>
+
                             <div className="flex items-center gap-4 mt-2">
                               <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
@@ -172,9 +217,36 @@ export default function HistoryPage() {
                             </div>
                           </div>
 
-                          <Button variant="ghost" size="icon" className="shrink-0">
-                            <ArrowRight className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            {/* Edit button to continue */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleItemClick(item)
+                              }}
+                              title="Continue this conversation"
+                            >
+                              <Edit3 className="h-4 w-4 text-primary" />
+                            </Button>
+                            {/* Delete button */}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                if (confirm("Delete this item?")) {
+                                  deleteQuestion(item.id)
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -196,7 +268,7 @@ export default function HistoryPage() {
         <Button asChild variant="outline" className="gap-2">
           <Link href="/ask">
             <MessageSquare className="h-4 w-4" />
-            Ask a new question
+            {tr("history.askNew")}
           </Link>
         </Button>
       </motion.div>
