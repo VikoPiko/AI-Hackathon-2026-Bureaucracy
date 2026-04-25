@@ -1,4 +1,5 @@
 import { streamObject } from 'ai';
+import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
 import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
 import { ProcedureAnswerSchema, COUNTRY_NAMES } from '@/lib/types';
@@ -15,6 +16,12 @@ const LANG_NAMES: Record<string, string> = {
   bg: 'Bulgarian',
   tr: 'Turkish',
 };
+
+const chatRequestSchema = z.object({
+  question: z.string().trim().min(1).max(2000),
+  language: z.enum(['en', 'de', 'nl', 'pt', 'es', 'fr', 'bg', 'tr']).default('en'),
+  country: z.string().trim().length(2).toUpperCase().default('DE'),
+});
 
 function chatSystemPrompt(language: string, country: string): string {
   return `You are an expert bureaucracy navigator specializing in ${
@@ -37,38 +44,56 @@ Output ONLY the JSON object. No preamble. No markdown fences.`;
 }
 
 export async function POST(req: Request) {
-  const { question, language = 'en', country = 'DE' } = await req.json();
+  try {
+    const payload = chatRequestSchema.safeParse(await req.json());
+    if (!payload.success) {
+      return Response.json(
+        {
+          error: 'Invalid request payload',
+          details: payload.error.flatten(),
+        },
+        { status: 400 },
+      );
+    }
 
-  const { chunks, sources, distances } = await retrieveContext(
-    question,
-    country,
-  );
-  const confidence = getConfidence(distances);
+    const { question, language, country } = payload.data;
+    const { chunks, sources, distances } = await retrieveContext(
+      question,
+      country,
+    );
+    const confidence = getConfidence(distances);
 
-  if (confidence < 0.3 || chunks.length === 0) {
-    return Response.json({
-      summary: `I don't have specific information about this procedure yet. Please check the official government website for ${
-        COUNTRY_NAMES[country] || country
-      }.`,
-      steps: [],
-      documents: [],
-      office: null,
-      fee_info: null,
-      source_url: null,
-      confidence,
-      answerable: false,
-    });
-  }
+    if (confidence < 0.3 || chunks.length === 0) {
+      return Response.json({
+        summary: `I don't have specific information about this procedure yet. Please check the official government website for ${
+          COUNTRY_NAMES[country] || country
+        }.`,
+        steps: [],
+        documents: [],
+        office: null,
+        fee_info: null,
+        source_url: null,
+        confidence,
+        answerable: false,
+      });
+    }
 
-  const result = await streamObject({
-    model: getModelId(),
-    schema: ProcedureAnswerSchema,
-    system: chatSystemPrompt(language, country),
-    prompt: `Question: ${question}
+    const result = await streamObject({
+      model: getModelId(),
+      schema: ProcedureAnswerSchema,
+      system: chatSystemPrompt(language, country),
+      prompt: `Question: ${question}
 
 Context from official ${COUNTRY_NAMES[country] || country} sources:
 ${buildContext(chunks, sources)}`,
-  });
+    });
 
-  return result.toTextStreamResponse();
+    return result.toTextStreamResponse();
+  } catch (error) {
+    console.error('Chat route error:', error);
+    return Response.json(
+      { error: 'Failed to generate procedure guidance' },
+      { status: 500 },
+    );
+  }
 }

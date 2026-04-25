@@ -1,6 +1,8 @@
 import { generateObject } from 'ai';
+import { z } from 'zod';
 import { DocumentRiskSchema, COUNTRY_NAMES } from '@/lib/types';
 import { getModelId } from '@/lib/ai/providers';
+import { extractTextFromUrl } from '@/lib/extract';
 
 // Legal standards per country per document type
 const LEGAL_STANDARDS: Record<string, Record<string, string>> = {
@@ -41,36 +43,52 @@ const LEGAL_STANDARDS: Record<string, Record<string, string>> = {
 const DEFAULT_STANDARDS =
   'Apply general European contract law standards. Flag any clause that appears one-sided, waives standard legal rights, or imposes unusual obligations on the weaker party.';
 
+const analyzeRequestSchema = z.object({
+  text: z.string().trim().min(1).optional(),
+  file_url: z.string().url().optional(),
+  document_type: z.string().trim().min(1).max(100).default('contract'),
+  country: z.string().trim().length(2).toUpperCase().default('DE'),
+}).refine((data) => Boolean(data.text || data.file_url), {
+  message: 'Either text or file_url is required',
+  path: ['text'],
+});
+
 export async function POST(req: Request) {
-  const {
-    text,
-    file_url,
-    document_type = 'contract',
-    country = 'DE',
-  } = await req.json();
+  try {
+    const payload = analyzeRequestSchema.safeParse(await req.json());
+    if (!payload.success) {
+      return Response.json(
+        {
+          error: 'Invalid request payload',
+          details: payload.error.flatten(),
+        },
+        { status: 400 },
+      );
+    }
 
-  let documentText = text;
-  if (!documentText && file_url) {
-    const res = await fetch(file_url);
-    documentText = await res.text();
-  }
+    const { text, file_url, document_type, country } = payload.data;
 
-  if (!documentText) {
-    return Response.json(
-      { error: 'No document text provided' },
-      { status: 400 },
-    );
-  }
+    let documentText = text;
+    if (!documentText && file_url) {
+      documentText = await extractTextFromUrl(file_url);
+    }
 
-  const standards =
-    LEGAL_STANDARDS[country]?.[document_type] || DEFAULT_STANDARDS;
+    if (!documentText) {
+      return Response.json(
+        { error: 'No document text provided' },
+        { status: 400 },
+      );
+    }
 
-  const { object } = await generateObject({
-    model: getModelId(),
-    schema: DocumentRiskSchema,
-    system: `You are a legal document analyst specializing in ${
-      COUNTRY_NAMES[country] || country
-    } contracts and official documents.
+    const standards =
+      LEGAL_STANDARDS[country]?.[document_type] || DEFAULT_STANDARDS;
+
+    const { object } = await generateObject({
+      model: getModelId(),
+      schema: DocumentRiskSchema,
+      system: `You are a legal document analyst specializing in ${
+        COUNTRY_NAMES[country] || country
+      } contracts and official documents.
 Your users are expats and foreigners who uploaded documents they cannot fully understand - often before signing.
 
 Legal standards to apply for ${COUNTRY_NAMES[country] || country}:
@@ -85,12 +103,19 @@ Your job:
 
 CRITICAL: Always respond in English, even if the document is in another language.
 Output ONLY the JSON object. No preamble. No markdown.`,
-    prompt: `Document type: ${document_type}
+      prompt: `Document type: ${document_type}
 Country jurisdiction: ${COUNTRY_NAMES[country] || country}
 
 Document text:
 ${documentText.slice(0, 10000)}`,
-  });
+    });
 
-  return Response.json(object);
+    return Response.json(object);
+  } catch (error) {
+    console.error('Analyze route error:', error);
+    return Response.json(
+      { error: 'Failed to analyze document' },
+      { status: 500 },
+    );
+  }
 }
