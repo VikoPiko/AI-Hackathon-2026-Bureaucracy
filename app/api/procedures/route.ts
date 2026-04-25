@@ -1,4 +1,4 @@
-import { ChromaClient } from 'chromadb';
+import { ChromaClient, IncludeEnum } from 'chromadb';
 import type { ProcedureSummary } from '@/lib/types';
 
 const chroma = new ChromaClient({ path: process.env.CHROMA_URL || 'http://localhost:8000' });
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
   const results = await collection.get({
     where: Object.keys(where).length ? where : undefined,
-    include: ['metadatas'],
+    include: [IncludeEnum.Metadatas],
     limit: 500,
   });
 

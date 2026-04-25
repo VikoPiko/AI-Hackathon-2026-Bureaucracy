@@ -1,4 +1,4 @@
-import { ChromaClient } from 'chromadb';
+import { ChromaClient, IncludeEnum } from 'chromadb';
 import { embedText } from './embed';
 
 // Singleton pattern for ChromaDB connection reuse
@@ -6,14 +6,43 @@ let chromaInstance: ChromaClient | null = null;
 
 /**
  * Get or create the ChromaDB singleton instance
+ * Supports both local (docker) and remote (Railway) URLs
  */
 export function getChromaClient(): ChromaClient {
   if (!chromaInstance) {
+    const chromaUrl = process.env.CHROMA_URL || 'http://localhost:8000';
+    
     chromaInstance = new ChromaClient({ 
-      path: process.env.CHROMA_URL || 'http://localhost:8000' 
+      path: chromaUrl 
     });
   }
   return chromaInstance;
+}
+
+/**
+ * Get the current ChromaDB URL being used
+ */
+export function getChromaUrl(): string {
+  return process.env.CHROMA_URL || 'http://localhost:8000';
+}
+
+/**
+ * Check if ChromaDB is configured for local development
+ */
+export function isLocalChroma(): boolean {
+  const url = getChromaUrl();
+  return url.includes('localhost') || url.includes('127.0.0.1');
+}
+
+// Type for ChromaDB metadata
+interface ChromaMetadata {
+  country?: string;
+  category?: string;
+  source_url?: string;
+  language?: string;
+  procedure_id?: string;
+  title?: string;
+  difficulty?: string;
 }
 
 /**
@@ -27,6 +56,7 @@ export async function retrieveContext(
 ) {
   const chroma = getChromaClient();
   
+  // Get or create collection - ChromaDB v2 API
   const collection = await chroma.getOrCreateCollection({
     name: 'procedures',
     metadata: { 'hnsw:space': 'cosine' },
@@ -44,26 +74,15 @@ export async function retrieveContext(
     queryEmbeddings: [embedding],
     nResults: topK,
     where,
-    include: ['documents', 'metadatas', 'distances'],
+    include: [IncludeEnum.Documents, IncludeEnum.Metadatas, IncludeEnum.Distances],
   });
 
   return {
-    chunks: (results.documents[0] || []) as string[],
-    sources: ((results.metadatas[0] || []) as ChromaMetadata[]).map(m => m?.source_url || ''),
+    chunks: (results.documents?.[0] || []) as string[],
+    sources: ((results.metadatas?.[0] || []) as ChromaMetadata[]).map(m => m?.source_url || ''),
     distances: (results.distances?.[0] || []) as number[],
-    metadata: (results.metadatas[0] || []) as ChromaMetadata[],
+    metadata: (results.metadatas?.[0] || []) as ChromaMetadata[],
   };
-}
-
-// Type for ChromaDB metadata
-interface ChromaMetadata {
-  country?: string;
-  category?: string;
-  source_url?: string;
-  language?: string;
-  procedure_id?: string;
-  title?: string;
-  difficulty?: string;
 }
 
 /**
@@ -90,8 +109,9 @@ export function getConfidence(distances: number[]): number {
 export async function checkChromaHealth(): Promise<boolean> {
   try {
     const chroma = getChromaClient();
-    await chroma.heartbeat();
-    return true;
+    // Heartbeat returns a number (nanoseconds)
+    const heartbeat = await chroma.heartbeat();
+    return typeof heartbeat === 'number' && heartbeat > 0;
   } catch {
     return false;
   }
@@ -104,15 +124,29 @@ export async function getCollectionStats() {
   const chroma = getChromaClient();
   
   try {
-    const collection = await chroma.getCollection({
-      name: 'procedures',
-    });
-    return {
-      name: collection.name,
-      dimension: collection.metadata?.dimension,
-      count: collection.metadata?.numElements,
-    };
+    // listCollections returns collection names/IDs (strings in v2)
+    const collectionNames = await chroma.listCollections();
+    
+    if (collectionNames.includes('procedures')) {
+      // getOrCreateCollection returns the collection object with name, metadata, etc.
+      const collection = await chroma.getOrCreateCollection({
+        name: 'procedures',
+      });
+      return {
+        name: collection.name,
+        dimension: collection.metadata?.dimension as number | undefined,
+        count: collection.metadata?.numElements as number | undefined,
+      };
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Reset ChromaDB connection (useful when URL changes)
+ */
+export function resetChromaClient(): void {
+  chromaInstance = null;
 }
