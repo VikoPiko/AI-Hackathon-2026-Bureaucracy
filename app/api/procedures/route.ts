@@ -1,7 +1,6 @@
-import { ChromaClient } from 'chromadb';
+import type { Where } from 'chromadb';
 import type { ProcedureSummary } from '@/lib/types';
-
-const chroma = new ChromaClient({ path: process.env.CHROMA_URL || 'http://localhost:8000' });
+import { getProceduresCollection, GET_INCLUDE } from '@/lib/rag';
 
 /**
  * GET /api/procedures
@@ -16,18 +15,25 @@ export async function GET(req: Request) {
   const country = searchParams.get('country');
   const category = searchParams.get('category');
 
-  const collection = await chroma.getOrCreateCollection({
-    name: 'procedures',
-    metadata: { 'hnsw:space': 'cosine' },
-  });
+  const collection = await getProceduresCollection();
 
-  const where: Record<string, string> = {};
-  if (country) where.country = country;
-  if (category) where.category = category;
+  let where: Where | undefined;
+  if (country && category) {
+    where = {
+      $and: [
+        { country: { $eq: country } },
+        { category: { $eq: category } },
+      ],
+    };
+  } else if (country) {
+    where = { country: { $eq: country } };
+  } else if (category) {
+    where = { category: { $eq: category } };
+  }
 
   const results = await collection.get({
-    where: Object.keys(where).length ? where : undefined,
-    include: ['metadatas'],
+    where,
+    include: [...GET_INCLUDE],
     limit: 500,
   });
 

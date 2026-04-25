@@ -96,6 +96,7 @@ Output ONLY the JSON object. No preamble. No markdown.`;
 
 export function buildJourneySystemPrompt(toCountry: string, language = 'en'): string {
   const countryName = COUNTRY_NAMES[toCountry] || toCountry;
+  const languageName = LANG_NAMES[language] || 'English';
 
   return `You are an expert international relocation advisor.
 Create a complete, phased relocation roadmap for someone moving to ${countryName}.
@@ -115,7 +116,8 @@ Urgency:
 - optional = nice to have
 
 Include realistic warnings about the most common mistakes people make in this move.
-Respond in ${language === 'en' ? 'English' : language}.
+If an area is not grounded in the provided context, keep it high-level and say that it should be verified on official sources.
+Respond in ${languageName}.
 Output ONLY the JSON object. No preamble. No markdown fences.`;
 }
 

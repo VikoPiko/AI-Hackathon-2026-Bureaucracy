@@ -1,6 +1,10 @@
 import { streamObject } from 'ai';
 import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
+import {
+  SupportedCountryInputSchema,
+  SupportedLanguageInputSchema,
+} from '@/lib/ai/request-schemas';
 import { buildChatSystemPrompt } from '@/lib/prompts';
 import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
 import { ProcedureAnswerSchema, COUNTRY_NAMES } from '@/lib/types';
@@ -9,10 +13,8 @@ export const maxDuration = 10;
 
 const chatRequestSchema = z.object({
   question: z.string().trim().min(1).max(2000),
-  language: z
-    .enum(['en', 'de', 'nl', 'pt', 'es', 'fr', 'bg', 'tr'])
-    .default('en'),
-  country: z.string().trim().length(2).toUpperCase().default('DE'),
+  language: SupportedLanguageInputSchema.default('en'),
+  country: SupportedCountryInputSchema.default('DE'),
 });
 
 export async function POST(req: Request) {
@@ -29,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     const { question, language, country } = payload.data;
-    const { chunks, sources, distances } = await retrieveContext(
+    const { chunks, sources, distances, metadata } = await retrieveContext(
       question,
       country,
     );
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
       prompt: `Question: ${question}
 
 Context from official ${COUNTRY_NAMES[country] || country} sources:
-${buildContext(chunks, sources)}`,
+${buildContext(chunks, sources, metadata)}`,
     });
 
     return result.toTextStreamResponse();

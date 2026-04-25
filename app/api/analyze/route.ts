@@ -1,6 +1,10 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
+import {
+  SupportedCountryInputSchema,
+  normalizeDocumentType,
+} from '@/lib/ai/request-schemas';
 import { extractTextFromUrl } from '@/lib/extract';
 import { buildAnalyzeSystemPrompt } from '@/lib/prompts';
 import { DocumentRiskSchema, COUNTRY_NAMES } from '@/lib/types';
@@ -9,8 +13,14 @@ const analyzeRequestSchema = z
   .object({
     text: z.string().trim().min(1).optional(),
     file_url: z.string().url().optional(),
-    document_type: z.string().trim().min(1).max(100).default('contract'),
-    country: z.string().trim().length(2).toUpperCase().default('DE'),
+    document_type: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .transform(normalizeDocumentType)
+      .default('contract'),
+    country: SupportedCountryInputSchema.default('DE'),
   })
   .refine((data) => Boolean(data.text || data.file_url), {
     message: 'Either text or file_url is required',

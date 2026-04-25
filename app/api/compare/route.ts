@@ -1,6 +1,7 @@
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getModelId } from '@/lib/ai/providers';
+import { SupportedCountryInputSchema } from '@/lib/ai/request-schemas';
 import { buildCompareSystemPrompt } from '@/lib/prompts';
 import { retrieveContext, buildContext, getConfidence } from '@/lib/rag';
 import {
@@ -9,12 +10,11 @@ import {
   type Country,
 } from '@/lib/types';
 
-const supportedCountries = new Set(Object.keys(COUNTRY_NAMES));
-
 const compareRequestSchema = z.object({
   question: z.string().trim().min(1).max(2000),
   countries: z
-    .array(z.string().trim().length(2).toUpperCase())
+    .array(SupportedCountryInputSchema)
+    .min(1)
     .max(6)
     .default(['DE', 'NL', 'PT', 'ES']),
 });
@@ -33,23 +33,14 @@ export async function POST(req: Request) {
     }
 
     const normalizedCountries = Array.from(
-      new Set(
-        payload.data.countries.filter((code) => supportedCountries.has(code)),
-      ),
+      new Set(payload.data.countries),
     ) as Country[];
-
-    if (normalizedCountries.length === 0) {
-      return Response.json(
-        { error: 'At least one supported country code is required' },
-        { status: 400 },
-      );
-    }
 
     const { question } = payload.data;
 
     const contextByCountry = await Promise.all(
       normalizedCountries.map(async (code) => {
-        const { chunks, sources, distances } = await retrieveContext(
+        const { chunks, sources, distances, metadata } = await retrieveContext(
           question,
           code,
           3,
@@ -57,7 +48,7 @@ export async function POST(req: Request) {
         return {
           code,
           name: COUNTRY_NAMES[code] || code,
-          context: buildContext(chunks, sources),
+          context: buildContext(chunks, sources, metadata),
           confidence: getConfidence(distances),
           hasContext: chunks.length > 0,
         };
@@ -66,6 +57,9 @@ export async function POST(req: Request) {
 
     const groundedCountries = contextByCountry.filter(
       (country) => country.hasContext && country.confidence >= 0.2,
+    );
+    const omittedCountries = contextByCountry.filter(
+      (country) => !country.hasContext || country.confidence < 0.2,
     );
 
     if (groundedCountries.length === 0) {
@@ -92,6 +86,7 @@ export async function POST(req: Request) {
 Countries to compare: ${groundedCountries
         .map((country) => country.code)
         .join(', ')}
+${omittedCountries.length ? `\nCountries with insufficient official context: ${omittedCountries.map((country) => country.code).join(', ')}` : ''}
 
 Context from official sources per country:
 ${contextBlock}`,
