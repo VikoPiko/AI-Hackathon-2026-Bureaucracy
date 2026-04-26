@@ -428,7 +428,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
             whileTap={{ scale: 0.95 }}
             className="relative cursor-grab rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:cursor-grabbing"
 
-            aria-label="FormWise assistant"
+            aria-label={tr("clippy.assistantLabel")}
           >
             {/* Paper Clip SVG */}
             <motion.svg

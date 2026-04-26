@@ -61,6 +61,23 @@ interface SuggestedFollowUp {
 function AskPageInner() {
   const searchParams = useSearchParams();
   const { translate: tr, language } = useI18n();
+  const localizeValidationMessage = useCallback((message: string) => {
+    const validationKeyMap: Record<string, string> = {
+      "Question is too short. Please provide more details.": "askPage.validation.questionTooShort",
+      "Add more context about your situation": "askPage.validation.addMoreContext",
+      "Include the type of procedure (e.g., visa, permit, certificate)": "askPage.validation.includeProcedureType",
+      "No country selected. Please select a country.": "askPage.validation.noCountrySelected",
+      "Select the country where you need this procedure": "askPage.validation.selectCountryForProcedure",
+      "Question contains vague terms. Please be more specific.": "askPage.validation.vagueTerms",
+      "Replace vague words with specific details": "askPage.validation.replaceVagueWords",
+      "Please end your question with a question mark (?).": "askPage.validation.missingQuestionMark",
+      "Please phrase your question clearly.": "askPage.validation.phraseClearly",
+      "Start with 'How', 'What', 'Where', 'When', or 'Can'": "askPage.validation.startWithQuestionWord",
+    };
+
+    const key = validationKeyMap[message];
+    return key ? tr(key) : message;
+  }, [tr]);
   const processCopy = {
     waitingForAnswer: language === "bg" ? "Изчаква се отговор от FormWise" : language === "de" ? "Warten auf FormWise-Antwort" : "Waiting for FormWise answer",
     questionSubmitted: language === "bg" ? "Въпросът е изпратен" : language === "de" ? "Frage gesendet" : "Question submitted",
@@ -531,13 +548,16 @@ function AskPageInner() {
     // Validate question before submitting
     const validation = validateQuestion(displayQuestion || question, country);
     if (!displayQuestion && !validation.isValid) {
-      setValidationError(validation.missingInfo.join(" "));
-      setValidationSuggestions(validation.suggestions);
-      setError(validation.missingInfo[0] || "Please provide more details");
+      const localizedMissingInfo = validation.missingInfo.map(localizeValidationMessage);
+      const localizedSuggestions = validation.suggestions.map(localizeValidationMessage);
+
+      setValidationError(localizedMissingInfo.join(" "));
+      setValidationSuggestions(localizedSuggestions);
+      setError(localizedMissingInfo[0] || tr("askPage.detailPrompt"));
       setNeedsMoreInfo(true);
       
-      toast.warning("Question needs more details", {
-        description: validation.missingInfo[0] || "Please be more specific",
+      toast.warning(tr("askPage.validation.needsMoreDetailsTitle"), {
+        description: localizedMissingInfo[0] || tr("askPage.validation.pleaseBeMoreSpecific"),
       });
       return;
     }
