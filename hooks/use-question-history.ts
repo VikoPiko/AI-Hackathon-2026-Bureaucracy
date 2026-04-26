@@ -32,6 +32,7 @@ export interface QuestionStats {
 
 export interface AddQuestionOptions {
   temporary?: boolean
+  id?: string
 }
 
 // Storage key
@@ -78,7 +79,7 @@ export function useQuestionHistory() {
     documentAnalysis: boolean = false,
     options: AddQuestionOptions = {}
   ): string => {
-    const id = `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const id = options.id ?? `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
     if (options.temporary) {
       return `temp-${id}`

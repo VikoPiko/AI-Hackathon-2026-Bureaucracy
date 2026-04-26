@@ -14,11 +14,13 @@ import { Search, MessageSquare, FileText, Calendar, Trash2, Sparkles, Edit3, Cli
 import Link from "next/link"
 import { useI18n } from "@/lib/i18n-context"
 import { useQuestionHistory, type QuestionHistoryItem } from "@/hooks/use-question-history"
+import { useUserProcesses } from "@/hooks/use-user-data"
 
 export default function HistoryPage() {
   const router = useRouter()
   const { translate: tr, language } = useI18n()
   const { history, isLoaded, deleteQuestion, clearHistory, searchHistory } = useQuestionHistory()
+  const { removeProcessesBySourceQuestionId, resetProcesses } = useUserProcesses()
   const historyCopy = {
     clearAll: language === "bg" ? "Изчисти всичко" : language === "de" ? "Alles löschen" : tr("history.clearAll"),
     noHistory: language === "bg" ? "Все още няма история" : language === "de" ? "Noch kein Verlauf" : tr("history.noHistory"),
@@ -46,6 +48,16 @@ export default function HistoryPage() {
 
   const handleContinue = (item: QuestionHistoryItem) => {
     router.push(`/ask?historyId=${item.id}`)
+  }
+
+  const handleDeleteQuestion = (id: string) => {
+    removeProcessesBySourceQuestionId(id)
+    deleteQuestion(id)
+  }
+
+  const handleClearHistory = () => {
+    resetProcesses()
+    clearHistory()
   }
 
   const filteredItems = searchHistory(searchQuery).filter((item) => {
@@ -108,7 +120,7 @@ export default function HistoryPage() {
               size="sm"
               onClick={() => {
                 if (confirm("Are you sure you want to clear all history?")) {
-                  clearHistory()
+                  handleClearHistory()
                 }
               }}
               className="gap-2 text-destructive hover:text-destructive"
@@ -261,7 +273,7 @@ export default function HistoryPage() {
                                 e.preventDefault()
                                 e.stopPropagation()
                                 if (confirm("Delete this item?")) {
-                                  deleteQuestion(item.id)
+                                  handleDeleteQuestion(item.id)
                                 }
                               }}
                             >
@@ -379,7 +391,7 @@ export default function HistoryPage() {
                   variant="outline"
                   className="w-full gap-2 sm:w-auto"
                   onClick={() => {
-                    deleteQuestion(selectedItem.id)
+                    handleDeleteQuestion(selectedItem.id)
                     setSelectedItem(null)
                   }}
                 >

@@ -71,6 +71,38 @@ function AskPageInner() {
     retryQuestion: language === "bg" ? "Опитай въпроса отново" : language === "de" ? "Frage erneut versuchen" : "Retry the question",
     processingFailedNotes: language === "bg" ? "Запитването не успя да бъде завършено за:" : language === "de" ? "Die Anfrage konnte nicht abgeschlossen werden für:" : "The request could not be completed for:",
   }
+  const missingContextCopy = {
+    title: language === "bg"
+      ? "Повече контекст би подобрил този отговор"
+      : language === "de"
+        ? "Mehr Kontext würde diese Antwort verbessern"
+        : tr("askPage.missingContextTitle"),
+    body: language === "bg"
+      ? "Моделът отговори предпазливо, но отбеляза детайли, които биха направили процедурата по-точна. Добави ги тук и FormWise ще продължи с пълния контекст."
+      : language === "de"
+        ? "Das Modell hat vorsichtig geantwortet, aber Details markiert, die das Verfahren genauer machen würden. Füge sie hier hinzu und FormWise macht mit dem vollständigen Kontext weiter."
+        : tr("askPage.missingContextBody"),
+    missingFields: language === "bg"
+      ? "Липсващи полета"
+      : language === "de"
+        ? "Fehlende Angaben"
+        : tr("askPage.missingFields"),
+    clarifyingQuestions: language === "bg"
+      ? "Уточняващи въпроси"
+      : language === "de"
+        ? "Klärende Fragen"
+        : tr("askPage.clarifyingQuestions"),
+    placeholder: language === "bg"
+      ? "Пример: Аз съм гражданин на държава извън ЕС, в момента съм в София и кандидатствам за дългосрочно разрешение за пребиваване преди да изтече текущата ми виза..."
+      : language === "de"
+        ? "Beispiel: Ich bin kein EU-Bürger, befinde mich derzeit in Sofia und beantrage eine langfristige Aufenthaltserlaubnis, bevor mein aktuelles Visum abläuft..."
+        : tr("askPage.contextPlaceholder"),
+    send: language === "bg"
+      ? "Изпрати с контекст"
+      : language === "de"
+        ? "Mit Kontext senden"
+        : tr("askPage.sendWithContext"),
+  };
   const initialQ = searchParams.get("q") ?? "";
   const historyId = searchParams.get("historyId");
   
@@ -611,7 +643,10 @@ function AskPageInner() {
         };
 
         // Save to localStorage history
-        addQuestion(question, response as unknown as Record<string, unknown>, country, language, false, { temporary: temporaryChat });
+        addQuestion(question, response as unknown as Record<string, unknown>, country, language, false, {
+          temporary: temporaryChat,
+          id: temporaryChat ? undefined : questionId,
+        });
 
         setConversationHistory(prev => [...prev, assistantMessage]);
         setBureaucracyResponse(response);
@@ -712,7 +747,13 @@ function AskPageInner() {
 
   const handleTrackProcess = () => {
     if (!bureaucracyResponse || temporaryChat) return;
-    const tracked = trackResponseAsProcess(lastSubmittedQuestion || bureaucracyResponse.procedureName, bureaucracyResponse, lastCountry);
+    const sourceQuestionId = loadedHistoryItem?.id ?? currentQuestionId ?? undefined;
+    const tracked = trackResponseAsProcess(
+      lastSubmittedQuestion || bureaucracyResponse.procedureName,
+      bureaucracyResponse,
+      lastCountry,
+      sourceQuestionId,
+    );
     setTrackedProcessIds(prev => [...prev, tracked.id]);
     toast.success(tr("askPage.processTracked"), {
       description: tracked.name,
@@ -986,10 +1027,10 @@ function AskPageInner() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <AlertCircle className="h-5 w-5 text-amber-600" />
-                  {tr("askPage.missingContextTitle")}
+                  {missingContextCopy.title}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {tr("askPage.missingContextBody")}
+                  {missingContextCopy.body}
                 </p>
               </CardHeader>
 
@@ -998,7 +1039,7 @@ function AskPageInner() {
                   <div className="grid gap-3 md:grid-cols-2">
                     {missingContextDetails.missingContext.length > 0 && (
                       <div className="rounded-lg border bg-background/70 p-3">
-                        <p className="text-sm font-medium mb-2">{tr("askPage.missingFields")}</p>
+                        <p className="text-sm font-medium mb-2">{missingContextCopy.missingFields}</p>
                         <ul className="space-y-1 text-sm text-muted-foreground">
                           {missingContextDetails.missingContext.map((item) => (
                             <li key={item}>- {item}</li>
@@ -1008,7 +1049,7 @@ function AskPageInner() {
                     )}
                     {missingContextDetails.followUpQuestions.length > 0 && (
                       <div className="rounded-lg border bg-background/70 p-3">
-                        <p className="text-sm font-medium mb-2">{tr("askPage.clarifyingQuestions")}</p>
+                        <p className="text-sm font-medium mb-2">{missingContextCopy.clarifyingQuestions}</p>
                         <ul className="space-y-1 text-sm text-muted-foreground">
                           {missingContextDetails.followUpQuestions.map((item) => (
                             <li key={item}>- {item}</li>
@@ -1021,7 +1062,7 @@ function AskPageInner() {
                 <Textarea
                   value={missingContextText}
                   onChange={(event) => setMissingContextText(event.target.value)}
-                  placeholder={tr("askPage.contextPlaceholder")}
+                  placeholder={missingContextCopy.placeholder}
                   className="min-h-[110px]"
                 />
                 <div className="flex justify-end gap-2">
@@ -1030,7 +1071,7 @@ function AskPageInner() {
                   </Button>
                   <Button onClick={handleMissingContextSubmit} disabled={!missingContextText.trim()} className="gap-2">
                     <MessageCircle className="h-4 w-4" />
-                    {tr("askPage.sendWithContext")}
+                    {missingContextCopy.send}
                   </Button>
                 </div>
               </CardContent>

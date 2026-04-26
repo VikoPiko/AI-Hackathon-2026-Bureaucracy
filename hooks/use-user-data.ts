@@ -326,18 +326,46 @@ export function useUserProcesses() {
     })
   }, [])
 
+  const removeProcessesBySourceQuestionId = useCallback((sourceQuestionId: string) => {
+    setProcesses(prev => {
+      const updated = prev.filter(p => p.sourceQuestionId !== sourceQuestionId)
+      localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify(updated))
+      return updated
+    })
+  }, [])
+
+  const removeProcessesBySourceQuestionIds = useCallback((sourceQuestionIds: string[]) => {
+    const idsToRemove = new Set(sourceQuestionIds)
+    setProcesses(prev => {
+      const updated = prev.filter(p => !p.sourceQuestionId || !idsToRemove.has(p.sourceQuestionId))
+      localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify(updated))
+      return updated
+    })
+  }, [])
+
   const resetProcesses = useCallback(() => {
     setProcesses([])
     localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify([]))
   }, [])
 
-  const trackResponseAsProcess = useCallback((question: string, response: TrackableResponse, country: string) => {
-    const trackedProcess = createProcessFromResponse(question, response, country)
+  const trackResponseAsProcess = useCallback((question: string, response: TrackableResponse, country: string, sourceQuestionId?: string) => {
+    const trackedProcess = createProcessFromResponse(question, response, country, sourceQuestionId)
     addProcess(trackedProcess)
     return trackedProcess
   }, [addProcess])
 
-  return { processes, setProcesses: updateProcesses, addProcess, updateProcess, removeProcess, resetProcesses, trackResponseAsProcess, isLoaded }
+  return {
+    processes,
+    setProcesses: updateProcesses,
+    addProcess,
+    updateProcess,
+    removeProcess,
+    removeProcessesBySourceQuestionId,
+    removeProcessesBySourceQuestionIds,
+    resetProcesses,
+    trackResponseAsProcess,
+    isLoaded,
+  }
 }
 
 /**
@@ -395,7 +423,12 @@ export function initializeUserData() {
   }
 }
 
-export function createProcessFromResponse(question: string, response: TrackableResponse, country: string): Process {
+export function createProcessFromResponse(
+  question: string,
+  response: TrackableResponse,
+  country: string,
+  sourceQuestionId?: string,
+): Process {
   const name = response.procedureName || question.slice(0, 80) || "Tracked procedure"
   const lower = `${name} ${question}`.toLowerCase()
   const type: Process["type"] =
@@ -437,6 +470,7 @@ export function createProcessFromResponse(question: string, response: TrackableR
     notes: response.summary || `Tracked from question: ${question}`,
     createdAt: Date.now(),
     updatedAt: Date.now(),
+    sourceQuestionId,
     origin: "manual",
   }
 }
