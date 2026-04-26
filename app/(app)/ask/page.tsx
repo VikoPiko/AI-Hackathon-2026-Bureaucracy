@@ -991,14 +991,14 @@ function AskPageInner() {
                 <div className="text-center max-w-md">
                   <p className="font-medium text-amber-800 dark:text-amber-200">{error}</p>
                   {needsMoreInfo && (
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <div className="text-sm text-muted-foreground mt-2">
                       {tr("askPage.moreInfoTips.intro")}
                       <ul className="mt-2 text-left list-disc list-inside text-xs">
                         <li>{tr("askPage.moreInfoTips.one")}</li>
                         <li>{tr("askPage.moreInfoTips.two")}</li>
                         <li>{tr("askPage.moreInfoTips.three")}</li>
                       </ul>
-                    </p>
+                    </div>
                   )}
                 </div>
                 <Button
