@@ -97,7 +97,7 @@ export default function DashboardPage() {
     },
   ]
 
-  const shortcutLabel = "Ctrl K"
+  const shortcutLabel = "Ctrl+K"
   const summaryParts = tr("dashboard.summary", { shortcut: shortcutLabel }).split(shortcutLabel)
 
   return (
