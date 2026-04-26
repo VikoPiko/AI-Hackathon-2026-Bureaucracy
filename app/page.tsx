@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, X, Shield, Zap, Users } from "lucide-react"
 import type { BureaucracyResponse } from "@/lib/ai/schemas"
 import { useI18n } from "@/lib/i18n-context"
+import { toast } from "sonner"
 
 export default function LandingPage() {
   const router = useRouter()
@@ -27,6 +28,7 @@ export default function LandingPage() {
   const [response, setResponse] = useState<BureaucracyResponse | null>(null)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const demoRef = useRef<HTMLDivElement>(null)
+  const responseRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const { scrollYProgress } = useScroll({
@@ -45,6 +47,16 @@ export default function LandingPage() {
     demoRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
+  const scrollToResponse = () => {
+    if (!responseRef.current) return
+
+    const targetTop = window.scrollY + responseRef.current.getBoundingClientRect().top - 96
+    window.scrollTo({
+      top: Math.max(targetTop, 0),
+      behavior: "smooth",
+    })
+  }
+
   const handleDemoSubmit = async (question: string) => {
     if (!user && usedTrial) {
       setShowLoginPrompt(true)
@@ -53,24 +65,46 @@ export default function LandingPage() {
 
     setIsLoading(true)
     setResponse(null)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollToResponse()
+      })
+    })
 
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: question, country: "BG", language }),
       })
 
-      if (!res.ok) throw new Error("Failed to analyze")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to get answer")
+      }
 
       const data = await res.json()
-      setResponse(data.response)
+      const nextResponse = data.response ?? null
+
+      if (!nextResponse) {
+        throw new Error("The server did not return a procedure answer")
+      }
+
+      setResponse(nextResponse)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToResponse()
+        })
+      })
       
       if (!user) {
         markTrialUsed()
       }
     } catch (error) {
       console.error("Demo error:", error)
+      toast.error(tr("askPage.failedAnswer"), {
+        description: error instanceof Error ? error.message : tr("askPage.checkConnection"),
+      })
     } finally {
       setIsLoading(false)
     }
@@ -93,7 +127,7 @@ export default function LandingPage() {
         <div className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] rounded-full bg-accent/5 blur-[100px]" />
       </motion.div>
       
-      <main>
+      <main className="relative">
         {/* Hero with floating elements */}
         <div className="relative">
           <FloatingElements />
@@ -132,6 +166,7 @@ export default function LandingPage() {
         </div>
 
         {/* Response Display */}
+        <div ref={responseRef} className="relative scroll-mt-24" />
         <AnimatePresence>
           {(isLoading || response) && (
             <motion.section

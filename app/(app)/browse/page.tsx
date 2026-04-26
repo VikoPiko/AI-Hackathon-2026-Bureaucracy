@@ -13,7 +13,7 @@ import { useI18n } from "@/lib/i18n-context"
 
 function BrowsePageInner() {
   const router = useRouter()
-  const { translate: tr } = useI18n()
+  const { translate: tr, language } = useI18n()
   const searchParams = useSearchParams()
   const initialCategoryId = searchParams.get("category")
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
@@ -29,8 +29,13 @@ function BrowsePageInner() {
   }, [initialCategoryId])
 
   const handleSelectProcedure = (procedure: { name: string }) => {
-    // Navigate to ask page with the procedure as a query
-    const query = encodeURIComponent(`How do I complete: ${procedure.name}`)
+    const promptPrefix =
+      language === "bg"
+        ? "Как да завърша:"
+        : language === "de"
+          ? "Wie erledige ich:"
+          : "How do I complete:"
+    const query = encodeURIComponent(`${promptPrefix} ${procedure.name}`)
     router.push(`/ask?q=${query}`)
   }
 

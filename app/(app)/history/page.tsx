@@ -17,13 +17,29 @@ import { useQuestionHistory, type QuestionHistoryItem } from "@/hooks/use-questi
 
 export default function HistoryPage() {
   const router = useRouter()
-  const { translate: tr } = useI18n()
+  const { translate: tr, language } = useI18n()
   const { history, isLoaded, deleteQuestion, clearHistory, searchHistory } = useQuestionHistory()
+  const historyCopy = {
+    clearAll: language === "bg" ? "Изчисти всичко" : language === "de" ? "Alles löschen" : tr("history.clearAll"),
+    noHistory: language === "bg" ? "Все още няма история" : language === "de" ? "Noch kein Verlauf" : tr("history.noHistory"),
+    startAsking: language === "bg" ? "Задавай въпроси, за да изградиш историята си" : language === "de" ? "Stelle Fragen, um deinen Verlauf aufzubauen" : tr("history.startAsking"),
+    askFirst: language === "bg" ? "Задай първия си въпрос" : language === "de" ? "Stelle deine erste Frage" : tr("history.askFirst"),
+    detailTitle: language === "bg" ? "Детайли от историята" : language === "de" ? "Verlaufsdetails" : tr("history.detailTitle"),
+    prompt: language === "bg" ? "Запитване" : language === "de" ? "Anfrage" : tr("history.prompt"),
+    response: language === "bg" ? "Отговор" : language === "de" ? "Antwort" : tr("history.response"),
+    confidence: language === "bg" ? "Увереност" : language === "de" ? "Sicherheit" : tr("history.confidence"),
+    steps: language === "bg" ? "Основни стъпки" : language === "de" ? "Wichtige Schritte" : tr("history.steps"),
+    step: language === "bg" ? "Стъпка" : language === "de" ? "Schritt" : tr("history.step"),
+    documents: language === "bg" ? "Документи" : language === "de" ? "Dokumente" : tr("history.documents"),
+    rawResponse: language === "bg" ? "Суров отговор" : language === "de" ? "Rohantwort" : tr("history.rawResponse"),
+    noResponseSaved: language === "bg" ? "За този елемент не е запазен пълен отговор." : language === "de" ? "Für diesen Eintrag wurde keine vollständige Antwort gespeichert." : tr("history.noResponseSaved"),
+    continueInAsk: language === "bg" ? "Продължи в Ask" : language === "de" ? "In Ask fortsetzen" : tr("history.continueInAsk"),
+    delete: language === "bg" ? "Изтрий" : language === "de" ? "Löschen" : tr("history.delete"),
+  }
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   const [selectedItem, setSelectedItem] = useState<QuestionHistoryItem | null>(null)
 
-  // Handle clicking on a history item to inspect the saved answer
   const handleItemClick = (item: QuestionHistoryItem) => {
     setSelectedItem(item)
   }
@@ -32,7 +48,6 @@ export default function HistoryPage() {
     router.push(`/ask?historyId=${item.id}`)
   }
 
-  // Filter based on search and tab
   const filteredItems = searchHistory(searchQuery).filter((item) => {
     const matchesTab = activeTab === "all" || item.type === activeTab
     return matchesTab
@@ -45,10 +60,9 @@ export default function HistoryPage() {
   const steps = Array.isArray(selectedResponse?.steps) ? selectedResponse.steps.slice(0, 5) : []
   const documents = Array.isArray(selectedResponse?.requiredDocuments) ? selectedResponse.requiredDocuments.slice(0, 6) : []
 
-  // Loading state
   if (!isLoaded) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="mx-auto w-full max-w-5xl space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -61,10 +75,10 @@ export default function HistoryPage() {
         </motion.div>
 
         <Card className="p-12">
-          <CardContent className="flex flex-col items-center justify-center text-center pt-6">
-            <div className="space-y-4 w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center pt-6 text-center">
+            <div className="w-full max-w-md space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+                <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
           </CardContent>
@@ -74,20 +88,20 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Page Header */}
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-2"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{tr("history.title")}</h1>
             <p className="text-muted-foreground">
               {tr("history.subtitle")}
             </p>
           </div>
+
           {history.length > 0 && (
             <Button
               variant="outline"
@@ -100,25 +114,23 @@ export default function HistoryPage() {
               className="gap-2 text-destructive hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
-              {tr("history.clearAll")}
+              {historyCopy.clearAll}
             </Button>
           )}
         </div>
-        
-        {/* Stats Summary */}
+
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
             <MessageSquare className="h-4 w-4" />
-            {history.filter(h => h.type === "question").length} questions
+            {history.filter((h) => h.type === "question").length} {tr("common.questions").toLowerCase()}
           </span>
           <span className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            {history.filter(h => h.type === "document").length} documents
+            {history.filter((h) => h.type === "document").length} {tr("common.documents").toLowerCase()}
           </span>
         </div>
       </motion.div>
 
-      {/* Search and Filter */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -126,7 +138,7 @@ export default function HistoryPage() {
         className="space-y-4"
       >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={tr("history.searchPlaceholder")}
             value={searchQuery}
@@ -141,32 +153,31 @@ export default function HistoryPage() {
               {tr("common.all")} ({history.length})
             </TabsTrigger>
             <TabsTrigger value="question">
-              {tr("common.questions")} ({history.filter(h => h.type === "question").length})
+              {tr("common.questions")} ({history.filter((h) => h.type === "question").length})
             </TabsTrigger>
             <TabsTrigger value="document">
-              {tr("common.documents")} ({history.filter(h => h.type === "document").length})
+              {tr("common.documents")} ({history.filter((h) => h.type === "document").length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-4">
             {filteredItems.length === 0 ? (
               <Card className="p-12">
-                <CardContent className="flex flex-col items-center justify-center text-center pt-6">
-                  <Search className="h-10 w-10 text-muted-foreground mb-4" />
+                <CardContent className="flex flex-col items-center justify-center pt-6 text-center">
+                  <Search className="mb-4 h-10 w-10 text-muted-foreground" />
                   <h3 className="font-medium">
-                    {searchQuery ? tr("common.noResults") : tr("history.noHistory")}
+                    {searchQuery ? tr("common.noResults") : historyCopy.noHistory}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {searchQuery 
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {searchQuery
                       ? tr("history.noResultsBody")
-                      : tr("history.startAsking")
-                    }
+                      : historyCopy.startAsking}
                   </p>
                   {!searchQuery && (
                     <Button asChild className="mt-4 gap-2">
                       <Link href="/ask">
                         <Sparkles className="h-4 w-4" />
-                        {tr("history.askFirst")}
+                        {historyCopy.askFirst}
                       </Link>
                     </Button>
                   )}
@@ -181,13 +192,13 @@ export default function HistoryPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Card 
-                      className="hover:border-primary/30 transition-colors cursor-pointer group"
+                    <Card
+                      className="group cursor-pointer transition-colors hover:border-primary/30"
                       onClick={() => handleItemClick(item)}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-4">
-                          <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
                             item.type === "question"
                               ? "bg-primary/10 text-primary"
                               : "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
@@ -199,13 +210,13 @@ export default function HistoryPage() {
                             )}
                           </div>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
                               <h3 className="font-medium">{item.title}</h3>
                               <Badge variant="outline" className="text-xs">
                                 {item.country}
                               </Badge>
-<Badge 
+                              <Badge
                                 variant="outline"
                                 className={`text-xs ${
                                   item.status === "completed"
@@ -217,37 +228,35 @@ export default function HistoryPage() {
                               </Badge>
                             </div>
 
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                               {item.preview}
                             </p>
 
-                            <div className="flex items-center gap-4 mt-2">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <div className="mt-2 flex items-center gap-4">
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <Calendar className="h-3 w-3" />
                                 {item.date}
                               </span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {/* Edit button to continue */}
+                          <div className="flex items-center gap-3">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleItemClick(item)
                               }}
-                              title={tr("history.continueInAsk")}
+                              title={historyCopy.continueInAsk}
                             >
                               <Edit3 className="h-4 w-4 text-primary" />
                             </Button>
-                            {/* Delete button */}
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
@@ -271,23 +280,27 @@ export default function HistoryPage() {
       </motion.div>
 
       <Dialog open={Boolean(selectedItem)} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[88vh] w-[min(96vw,960px)] max-w-[960px] overflow-y-auto px-4 sm:px-6">
           {selectedItem && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
+                <DialogTitle className="flex flex-wrap items-center gap-2">
                   {selectedItem.type === "question" ? <MessageSquare className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
-                  {tr("history.detailTitle")}
+                  {historyCopy.detailTitle}
                 </DialogTitle>
-                <DialogDescription>
-                  {selectedItem.date} · {selectedItem.country} · {selectedItem.type}
+                <DialogDescription className="flex flex-wrap items-center gap-2 text-sm">
+                  <span>{selectedItem.date}</span>
+                  <span className="text-muted-foreground/50">·</span>
+                  <Badge variant="outline" className="text-xs">{selectedItem.country}</Badge>
+                  <span className="text-muted-foreground/50">·</span>
+                  <Badge variant="outline" className="text-xs capitalize">{selectedItem.type}</Badge>
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-5">
+              <div className="space-y-5 overflow-x-hidden">
                 <div className="rounded-lg border bg-muted/30 p-4">
-                  <p className="text-sm font-medium mb-2">{tr("history.prompt")}</p>
-                  <p className="text-sm whitespace-pre-wrap">{selectedItem.fullQuestion}</p>
+                  <p className="mb-2 text-sm font-medium">{historyCopy.prompt}</p>
+                  <p className="break-words whitespace-pre-wrap text-sm">{selectedItem.fullQuestion}</p>
                 </div>
 
                 {selectedResponse ? (
@@ -299,14 +312,14 @@ export default function HistoryPage() {
                       {confidenceScore !== null && (
                         <Badge variant="outline" className="gap-1">
                           <ShieldCheck className="h-3 w-3" />
-                          {tr("history.confidence")}: {confidenceScore}%
+                          {historyCopy.confidence}: {confidenceScore}%
                         </Badge>
                       )}
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium mb-2">{tr("history.response")}</p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      <p className="mb-2 text-sm font-medium">{historyCopy.response}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm text-muted-foreground">
                         {typeof selectedResponse.summary === "string"
                           ? selectedResponse.summary
                           : typeof selectedResponse._rawContent === "string"
@@ -317,13 +330,13 @@ export default function HistoryPage() {
 
                     {steps.length > 0 && (
                       <div>
-                        <p className="text-sm font-medium mb-2">{tr("history.steps")}</p>
+                        <p className="mb-2 text-sm font-medium">{historyCopy.steps}</p>
                         <div className="space-y-2">
                           {steps.map((step, index) => (
                             <div key={`${String(step?.title ?? "step")}-${index}`} className="rounded-lg border p-3 text-sm">
-                              <p className="font-medium">{String(step?.title ?? `${tr("history.step")} ${index + 1}`)}</p>
+                              <p className="break-words font-medium">{String(step?.title ?? `${historyCopy.step} ${index + 1}`)}</p>
                               {step?.description && (
-                                <p className="text-muted-foreground mt-1">{String(step.description)}</p>
+                                <p className="mt-1 break-words text-muted-foreground">{String(step.description)}</p>
                               )}
                             </div>
                           ))}
@@ -333,7 +346,7 @@ export default function HistoryPage() {
 
                     {documents.length > 0 && (
                       <div>
-                        <p className="text-sm font-medium mb-2">{tr("history.documents")}</p>
+                        <p className="mb-2 text-sm font-medium">{historyCopy.documents}</p>
                         <div className="flex flex-wrap gap-2">
                           {documents.map((doc, index) => (
                             <Badge key={`${String(doc?.name ?? "doc")}-${index}`} variant="outline">
@@ -348,8 +361,8 @@ export default function HistoryPage() {
                       <>
                         <Separator />
                         <div>
-                          <p className="text-sm font-medium mb-2">{tr("history.rawResponse")}</p>
-                          <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 text-xs whitespace-pre-wrap">
+                          <p className="mb-2 text-sm font-medium">{historyCopy.rawResponse}</p>
+                          <pre className="max-h-56 overflow-auto rounded-lg bg-muted p-3 text-xs break-words whitespace-pre-wrap">
                             {selectedResponse._rawContent}
                           </pre>
                         </div>
@@ -357,25 +370,26 @@ export default function HistoryPage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{tr("history.noResponseSaved")}</p>
+                  <p className="text-sm text-muted-foreground">{historyCopy.noResponseSaved}</p>
                 )}
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="flex-col gap-3 pt-4 sm:flex-row sm:justify-end sm:gap-4">
                 <Button
                   variant="outline"
-                  className="gap-2"
+                  className="w-full gap-2 sm:w-auto"
                   onClick={() => {
                     deleteQuestion(selectedItem.id)
                     setSelectedItem(null)
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
-                  {tr("history.delete")}
+                  {historyCopy.delete}
                 </Button>
-                <Button className="gap-2" onClick={() => handleContinue(selectedItem)}>
+
+                <Button className="w-full gap-2 sm:w-auto" onClick={() => handleContinue(selectedItem)}>
                   <ClipboardList className="h-4 w-4" />
-                  {tr("history.continueInAsk")}
+                  {historyCopy.continueInAsk}
                 </Button>
               </DialogFooter>
             </>
@@ -383,7 +397,6 @@ export default function HistoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Quick Actions */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

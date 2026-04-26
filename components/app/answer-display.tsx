@@ -163,7 +163,7 @@ interface AnswerDisplayProps {
 }
 
 export function AnswerDisplay({ response }: AnswerDisplayProps) {
-  const { translate: tr } = useI18n()
+  const { translate: tr, language } = useI18n()
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [checkedDocs, setCheckedDocs] = useState<string[]>([])
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
@@ -206,15 +206,107 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
   const confidenceScore = typeof response.confidenceScore === "number"
     ? Math.round(Math.max(0, Math.min(1, response.confidenceScore)) * 100)
     : null
+  const confidenceCopy = {
+    title: language === "bg" ? "Увереност на AI" : language === "de" ? "KI-Vertrauen" : tr("confidence.title"),
+    body: language === "bg"
+      ? "Тази оценка комбинира самопроверката на модела с качеството на източниците, структурната пълнота и сигналите за липсващ контекст."
+      : language === "de"
+        ? "Diese Bewertung kombiniert die Selbstprüfung des Modells mit Quellenqualität, struktureller Vollständigkeit und Signalen für fehlenden Kontext."
+        : tr("confidence.body"),
+    needsContext: language === "bg"
+      ? "Отговорът е полезен, но моделът показва, че е нужен още контекст, преди да разчиташ изцяло на него."
+      : language === "de"
+        ? "Die Antwort ist nützlich, aber das Modell zeigt, dass vor einer vollen Verlässlichkeit mehr Kontext nötig ist."
+        : tr("confidence.needsContext"),
+    high: language === "bg" ? "Висока увереност" : language === "de" ? "Hohe Sicherheit" : tr("confidence.high"),
+    good: language === "bg" ? "Добра увереност" : language === "de" ? "Gute Sicherheit" : tr("confidence.good"),
+    verify: language === "bg" ? "Провери детайлите" : language === "de" ? "Details prüfen" : tr("confidence.verify"),
+    low: language === "bg" ? "Ниска увереност" : language === "de" ? "Niedrige Sicherheit" : tr("confidence.low"),
+    unrated: language === "bg" ? "Без оценка" : language === "de" ? "Unbewertet" : tr("confidence.unrated"),
+  }
+  const confidenceReasonMap: Record<string, string> = {
+    "The primary AI procedure engine failed, so this uses limited government-source fallback content.":
+      language === "bg"
+        ? "Основният AI механизъм за процедурите се провали, затова е използван ограничен резервен отговор от правителствени източници."
+        : language === "de"
+          ? "Die primäre KI-Prozedur-Engine ist ausgefallen, daher wird ein begrenzter Fallback aus Regierungsquellen verwendet."
+          : "The primary AI procedure engine failed, so this uses limited government-source fallback content.",
+    "Exact steps, documents, and fees still need confirmation with the official authority.":
+      language === "bg"
+        ? "Точните стъпки, документи и такси все още трябва да се потвърдят от официалния орган."
+        : language === "de"
+          ? "Genaue Schritte, Unterlagen und Gebühren müssen weiterhin bei der zuständigen Behörde bestätigt werden."
+          : "Exact steps, documents, and fees still need confirmation with the official authority.",
+    "The model response could not be parsed as structured JSON.":
+      language === "bg"
+        ? "Отговорът на модела не можа да бъде обработен като структуриран JSON."
+        : language === "de"
+          ? "Die Modellantwort konnte nicht als strukturiertes JSON verarbeitet werden."
+          : "The model response could not be parsed as structured JSON.",
+    "Use this as a starting point and verify details with an official source.":
+      language === "bg"
+        ? "Използвай това като отправна точка и провери детайлите в официален източник."
+        : language === "de"
+          ? "Nutze dies als Ausgangspunkt und prüfe die Details bei einer offiziellen Quelle."
+          : "Use this as a starting point and verify details with an official source.",
+    "Official source or legal foundation is present.":
+      language === "bg"
+        ? "Налице е официален източник или правно основание."
+        : language === "de"
+          ? "Eine offizielle Quelle oder Rechtsgrundlage ist vorhanden."
+          : "Official source or legal foundation is present.",
+    "The response includes a structured step-by-step procedure.":
+      language === "bg"
+        ? "Отговорът включва структурирана процедура стъпка по стъпка."
+        : language === "de"
+          ? "Die Antwort enthält ein strukturiertes Schritt-für-Schritt-Verfahren."
+          : "The response includes a structured step-by-step procedure.",
+    "Required documents are listed.":
+      language === "bg"
+        ? "Изброени са необходимите документи."
+        : language === "de"
+          ? "Erforderliche Dokumente sind aufgeführt."
+          : "Required documents are listed.",
+    "Timeline or cost information is included.":
+      language === "bg"
+        ? "Включена е информация за срокове или разходи."
+        : language === "de"
+          ? "Angaben zu Dauer oder Kosten sind enthalten."
+          : "Timeline or cost information is included.",
+    "Fallback source was used, so details should be verified with the authority.":
+      language === "bg"
+        ? "Използван е резервен източник, затова детайлите трябва да се проверят при компетентния орган."
+        : language === "de"
+          ? "Es wurde eine Fallback-Quelle verwendet, daher sollten die Details bei der Behörde geprüft werden."
+          : "Fallback source was used, so details should be verified with the authority.",
+    "The response was recovered from unstructured text.":
+      language === "bg"
+        ? "Отговорът е възстановен от неструктуриран текст."
+        : language === "de"
+          ? "Die Antwort wurde aus unstrukturiertem Text rekonstruiert."
+          : "The response was recovered from unstructured text.",
+    "More user context is needed for a case-specific answer.":
+      language === "bg"
+        ? "Нужен е допълнителен потребителски контекст за отговор, съобразен с конкретния случай."
+        : language === "de"
+          ? "Für eine fallspezifische Antwort wird mehr Nutzerkontext benötigt."
+          : "More user context is needed for a case-specific answer.",
+    "Official source links were not fully identified.":
+      language === "bg"
+        ? "Връзките към официални източници не бяха напълно установени."
+        : language === "de"
+          ? "Links zu offiziellen Quellen konnten nicht vollständig ermittelt werden."
+          : "Official source links were not fully identified.",
+  }
   const confidenceLabel = confidenceScore === null
-    ? tr("confidence.unrated")
+    ? confidenceCopy.unrated
     : confidenceScore >= 85
-      ? tr("confidence.high")
+      ? confidenceCopy.high
       : confidenceScore >= 65
-        ? tr("confidence.good")
+        ? confidenceCopy.good
         : confidenceScore >= 45
-          ? tr("confidence.verify")
-          : tr("confidence.low")
+          ? confidenceCopy.verify
+          : confidenceCopy.low
   const confidenceTone = confidenceScore === null
     ? "border-muted bg-muted/30"
     : confidenceScore >= 85
@@ -240,19 +332,19 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-primary" />
-                  <p className="font-semibold">{tr("confidence.title")}</p>
+                  <p className="font-semibold">{confidenceCopy.title}</p>
                   <Badge variant="outline">{confidenceLabel}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {response.needsMoreContext
-                    ? tr("confidence.needsContext")
-                    : tr("confidence.body")}
+                    ? confidenceCopy.needsContext
+                    : confidenceCopy.body}
                 </p>
                 {response.confidenceReasons && response.confidenceReasons.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {response.confidenceReasons.slice(0, 4).map((reason) => (
                       <Badge key={reason} variant="secondary" className="whitespace-normal text-left">
-                        {reason}
+                        {confidenceReasonMap[reason] ?? reason}
                       </Badge>
                     ))}
                   </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { usePathname } from "next/navigation"
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, type PanInfo } from "motion/react"
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useDragControls, type PanInfo } from "motion/react"
 import { X, ChevronRight, HelpCircle, RotateCcw, Grip } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -19,6 +19,11 @@ const corners = [
   { x: "left-6", y: "top-24" },
 ]
 
+const CLIPPY_WIDTH = 60
+const CLIPPY_HEIGHT = 72
+const EDGE_PADDING = 12
+
+
 interface FormWiseClippyProps {
   className?: string
   initialDelay?: number
@@ -32,13 +37,28 @@ type ClippyPosition = {
 function clampPosition(position: ClippyPosition): ClippyPosition {
   if (typeof window === "undefined") return position
 
-  const maxX = Math.max(12, window.innerWidth - 92)
-  const maxY = Math.max(12, window.innerHeight - 110)
+  const maxX = Math.max(EDGE_PADDING, window.innerWidth - CLIPPY_WIDTH - EDGE_PADDING)
+  const maxY = Math.max(EDGE_PADDING, window.innerHeight - CLIPPY_HEIGHT - EDGE_PADDING)
 
   return {
-    x: Math.min(Math.max(position.x, 12), maxX),
-    y: Math.min(Math.max(position.y, 12), maxY),
+    x: Math.min(Math.max(position.x, EDGE_PADDING), maxX),
+    y: Math.min(Math.max(position.y, EDGE_PADDING), maxY),
   }
+}
+
+function getCornerPosition(corner: (typeof corners)[number]): ClippyPosition {
+  if (typeof window === "undefined") {
+    return { x: EDGE_PADDING, y: EDGE_PADDING }
+  }
+
+  const x = corner.x.includes("right")
+    ? window.innerWidth - CLIPPY_WIDTH - 24
+    : 24
+  const y = corner.y.includes("bottom")
+    ? window.innerHeight - CLIPPY_HEIGHT - 24
+    : 96
+
+  return clampPosition({ x, y })
 }
 
 export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClippyProps) {
@@ -53,10 +73,14 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   const [isBouncing, setIsBouncing] = useState(false)
   const [eyebrowRaise, setEyebrowRaise] = useState(false)
   const [savedPosition, setSavedPosition] = useState<ClippyPosition | null>(null)
+  const [dragAnchorPosition, setDragAnchorPosition] = useState<ClippyPosition | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragBubbleOnRightSide, setDragBubbleOnRightSide] = useState(false)
   const [hasUserPosition, setHasUserPosition] = useState(false)
   const jumpTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const bounceIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const clippyRef = useRef<HTMLDivElement | null>(null)
+  const dragStartPositionRef = useRef<ClippyPosition | null>(null)
+  const dragControls = useDragControls()
   
   const routeKey = pathname?.startsWith("/ask")
     ? "ask"
@@ -74,6 +98,8 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   // Mouse tracking for eyes
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
+  const dragX = useMotionValue(0)
+  const dragY = useMotionValue(0)
   const smoothMouseX = useSpring(mouseX, { stiffness: 100, damping: 20 })
   const smoothMouseY = useSpring(mouseY, { stiffness: 100, damping: 20 })
   const eyeX = useTransform(smoothMouseX, [-500, 500], [-4, 4])
@@ -91,6 +117,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
       try {
         const parsed = JSON.parse(storedPosition) as ClippyPosition
         setSavedPosition(clampPosition(parsed))
+
         setHasUserPosition(true)
       } catch {
         localStorage.removeItem(POSITION_KEY)
@@ -102,7 +129,9 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
     }, initialDelay)
 
     return () => clearTimeout(timer)
+
   }, [initialDelay])
+
 
   // Mouse tracking
   useEffect(() => {
@@ -111,6 +140,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
       const centerY = window.innerHeight / 2
       mouseX.set(e.clientX - centerX)
       mouseY.set(e.clientY - centerY)
+
     }
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true })
@@ -149,9 +179,12 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
           // Wiggle eyebrows after landing
           setEyebrowRaise(true)
           setTimeout(() => setEyebrowRaise(false), 500)
+
         }, 400)
+
         scheduleJump()
       }, delay)
+
     }
 
     scheduleJump()
@@ -167,32 +200,63 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
     setIsVisible(false)
     sessionStorage.setItem(SESSION_HIDE_KEY, "true")
     setIsHiddenForSession(true)
+
   }, [])
 
   const handleRestore = useCallback(() => {
     sessionStorage.removeItem(SESSION_HIDE_KEY)
     setIsHiddenForSession(false)
+
     setIsVisible(true)
+
     setIsExpanded(true)
+
   }, [])
 
-  const handleDragEnd = useCallback((_event: MouseEvent | TouchEvent | PointerEvent, _info: PanInfo) => {
-    if (!clippyRef.current) return
+  const handleDragStart = useCallback(() => {
+    const basePosition = savedPosition ?? getCornerPosition(corners[cornerIndex])
+    dragStartPositionRef.current = basePosition
+    dragX.set(0)
+    dragY.set(0)
+    setDragAnchorPosition(basePosition)
+    setDragBubbleOnRightSide(
+      typeof window !== "undefined"
+        ? basePosition.x + CLIPPY_WIDTH / 2 >= window.innerWidth / 2
+        : false
+    )
+    setIsDragging(true)
+  }, [cornerIndex, dragX, dragY, savedPosition])
 
-    const rect = clippyRef.current.getBoundingClientRect()
-    const nextPosition = clampPosition({ x: rect.left, y: rect.top })
+  const handleDragEnd = useCallback((_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const basePosition = dragStartPositionRef.current ?? savedPosition ?? getCornerPosition(corners[cornerIndex])
+    const nextPosition = clampPosition({
+      x: basePosition.x + info.offset.x,
+      y: basePosition.y + info.offset.y,
+    })
 
+    dragStartPositionRef.current = null
+    dragX.set(0)
+    dragY.set(0)
+    setDragAnchorPosition(null)
+    setIsDragging(false)
     setSavedPosition(nextPosition)
     setHasUserPosition(true)
     localStorage.setItem(POSITION_KEY, JSON.stringify(nextPosition))
-  }, [])
+  }, [cornerIndex, dragX, dragY, savedPosition])
 
   const handleResetPosition = useCallback(() => {
     localStorage.removeItem(POSITION_KEY)
     setSavedPosition(null)
+    setDragAnchorPosition(null)
+    setIsDragging(false)
+    dragX.set(0)
+    dragY.set(0)
+
     setHasUserPosition(false)
+
     setCornerIndex(0)
-  }, [])
+
+  }, [dragX, dragY])
 
   const nextTip = useCallback(() => {
     setCurrentTip((prev) => (prev + 1) % tips.length)
@@ -224,22 +288,31 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
   }
 
   const currentCorner = corners[cornerIndex]
-  const positionClass = savedPosition ? "" : `${currentCorner.x} ${currentCorner.y}`
+  const activePosition = dragAnchorPosition ?? savedPosition
+  const isOnRightSide = isDragging
+    ? dragBubbleOnRightSide
+    : activePosition
+    ? typeof window !== "undefined"
+      ? activePosition.x + CLIPPY_WIDTH / 2 >= window.innerWidth / 2
+      : false
+    : currentCorner.x.includes("right")
+  const positionClass = activePosition ? "" : `${currentCorner.x} ${currentCorner.y}`
 
   return (
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          ref={clippyRef}
           drag
+          dragControls={dragControls}
+          dragListener={false}
           dragMomentum={false}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           initial={{ opacity: 0, scale: 0.5, y: 50 }}
           animate={{ 
             opacity: 1, 
             scale: 1, 
             y: 0,
-            x: isJumping ? [0, 0, 0] : 0,
           }}
           exit={{ opacity: 0, scale: 0.5, y: 50 }}
           transition={{ 
@@ -248,23 +321,27 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
             damping: 20,
           }}
           className={cn(
-            "fixed z-50 flex cursor-grab items-end gap-3 active:cursor-grabbing",
+            "fixed z-50 h-[72px] w-[60px]",
             positionClass,
-            currentCorner.x.includes("left") ? "flex-row-reverse" : "flex-row",
             className
           )}
-          style={savedPosition ? { left: savedPosition.x, top: savedPosition.y } : undefined}
+          style={{
+            ...(activePosition ? { left: activePosition.x, top: activePosition.y } : {}),
+            x: dragX,
+            y: dragY,
+          }}
         >
           {/* Speech Bubble */}
           <AnimatePresence mode="wait">
             {isExpanded && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.8, x: currentCorner.x.includes("left") ? -20 : 20 }}
+                initial={{ opacity: 0, scale: 0.8, x: isOnRightSide ? -20 : 20 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.8, x: currentCorner.x.includes("left") ? -20 : 20 }}
+                exit={{ opacity: 0, scale: 0.8, x: isOnRightSide ? -20 : 20 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
                 className={cn(
-                  "relative max-w-xs rounded-2xl border border-border bg-card p-4 shadow-xl",
+                  "absolute bottom-2 max-w-xs rounded-2xl border border-border bg-card p-4 shadow-xl",
+                  isOnRightSide ? "right-[calc(100%+0.75rem)]" : "left-[calc(100%+0.75rem)]",
                 )}
               >
                 <Button
@@ -275,20 +352,24 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                 >
                   <X className="h-3 w-3" />
                 </Button>
+
                 
                 <div className="space-y-3">
                   <div className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
                     <Grip className="h-3 w-3" />
                     {tr("clippy.dragHint")}
                   </div>
+
                   <motion.p 
                     key={currentTip}
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-sm leading-relaxed"
+
                   >
                     {tips[currentTip % tips.length] || tr("clippy.tips.default.one")}
                   </motion.p>
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -298,6 +379,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                     {tr("clippy.nextTip")}
                     <ChevronRight className="h-3 w-3" />
                   </Button>
+
                   {hasUserPosition && (
                     <Button
                       variant="ghost"
@@ -308,36 +390,44 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                       <RotateCcw className="h-3 w-3" />
                       {tr("clippy.resetPosition")}
                     </Button>
+
                   )}
                 </div>
+
 
                 {/* Speech bubble tail */}
                 <div 
                   className={cn(
                     "absolute bottom-4 h-4 w-4 rotate-45 border-border bg-card",
-                    currentCorner.x.includes("left") 
-                      ? "-left-2 border-l border-b" 
-                      : "-right-2 border-r border-b"
+                    isOnRightSide
+                      ? "-right-2 border-r border-b" 
+                      : "-left-2 border-l border-b"
                   )} 
                 />
               </motion.div>
+
             )}
           </AnimatePresence>
+
 
           {/* Clippy Paper Clip Character */}
           <motion.button
             onClick={handleClippyClick}
+            onPointerDown={(event) => {
+              dragControls.start(event, { snapToCursor: false })
+            }}
             animate={{
-              y: isBouncing ? [0, -15, 0, -8, 0] : 0,
-              rotate: isBouncing ? [0, -5, 5, -3, 0] : 0,
+              y: !isDragging && isBouncing ? [0, -15, 0, -8, 0] : 0,
+              rotate: !isDragging && isBouncing ? [0, -5, 5, -3, 0] : 0,
             }}
             transition={{
               y: { duration: 0.6, ease: "easeOut" },
               rotate: { duration: 0.6, ease: "easeOut" },
             }}
-            whileHover={{ scale: 1.08 }}
+            whileHover={isDragging ? undefined : { scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
-            className="relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full"
+            className="relative cursor-grab rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:cursor-grabbing"
+
             aria-label="FormWise assistant"
           >
             {/* Paper Clip SVG */}
@@ -384,29 +474,35 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                   <stop offset="50%" stopColor="#d4d4d4" />
                   <stop offset="100%" stopColor="#8a8a8a" />
                 </linearGradient>
+
                 <linearGradient id="clipGradientInner" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#c4c4c4" />
                   <stop offset="50%" stopColor="#e8e8e8" />
                   <stop offset="100%" stopColor="#a0a0a0" />
                 </linearGradient>
+
               </defs>
             </motion.svg>
+
 
             {/* Face overlay on top of clip */}
             <div className="absolute top-[18px] left-1/2 -translate-x-1/2 flex flex-col items-center">
               {/* Eyebrows */}
               <motion.div 
                 className="flex gap-3 mb-0.5"
+
                 animate={{ y: eyebrowRaise ? -3 : 0 }}
                 transition={{ type: "spring", stiffness: 500, damping: 15 }}
               >
                 <motion.div 
                   className="w-3 h-0.5 bg-gray-600 rounded-full"
+
                   style={{ rotate: -15 }}
                   animate={{ rotate: eyebrowRaise ? -25 : -15 }}
                 />
                 <motion.div 
                   className="w-3 h-0.5 bg-gray-600 rounded-full"
+
                   style={{ rotate: 15 }}
                   animate={{ rotate: eyebrowRaise ? 25 : 15 }}
                 />
@@ -417,6 +513,7 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                 <div className="relative w-5 h-5 rounded-full bg-white border-2 border-gray-300 overflow-hidden shadow-inner">
                   <motion.div 
                     className="absolute w-2.5 h-2.5 bg-gray-800 rounded-full"
+
                     style={{ 
                       x: eyeX, 
                       y: eyeY,
@@ -427,9 +524,11 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                     }}
                   />
                 </div>
+
                 <div className="relative w-5 h-5 rounded-full bg-white border-2 border-gray-300 overflow-hidden shadow-inner">
                   <motion.div 
                     className="absolute w-2.5 h-2.5 bg-gray-800 rounded-full"
+
                     style={{ 
                       x: eyeX, 
                       y: eyeY,
@@ -440,8 +539,10 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                     }}
                   />
                 </div>
+
               </div>
             </div>
+
 
             {/* Notification dot */}
             <AnimatePresence>
@@ -451,17 +552,21 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
                   animate={{ scale: 1 }}
                   exit={{ scale: 0 }}
                   className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent flex items-center justify-center shadow-md"
+
                 >
                   <motion.span 
                     className="text-[11px] font-bold text-accent-foreground"
+
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
                   >
                     !
                   </motion.span>
+
                 </motion.div>
               )}
             </AnimatePresence>
+
 
             {/* Hover glow */}
             <motion.div
@@ -471,8 +576,10 @@ export function FormWiseClippy({ className, initialDelay = 5000 }: FormWiseClipp
               transition={{ duration: 0.3 }}
             />
           </motion.button>
+
         </motion.div>
       )}
     </AnimatePresence>
+
   )
 }

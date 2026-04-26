@@ -35,7 +35,7 @@ export function FloatingElements() {
   }, [])
 
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden pointer-events-none" style={{ position: 'absolute' }}>
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden pointer-events-none">
       {floatingItems.map(({ Icon, delay, x, y, rotate, size, parallaxSpeed }, index) => (
         <FloatingItem 
           key={index}

@@ -3,17 +3,18 @@
 import { motion } from "motion/react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Home, 
-  Briefcase, 
-  Building2, 
-  Heart, 
-  GraduationCap, 
+import {
+  Home,
+  Briefcase,
+  Building2,
+  Heart,
+  GraduationCap,
   Car,
   Plane,
   FileText,
   type LucideIcon
 } from "lucide-react"
+import { useI18n } from "@/lib/i18n-context"
 
 export interface Category {
   id: string
@@ -114,7 +115,86 @@ interface BrowseCategoriesProps {
   onSelectCategory: (category: Category) => void
 }
 
+function getLocalizedCategory(category: Category, language: string): Category {
+  const localized: Record<string, Partial<Record<string, { name: string; description: string }>>> = {
+    bg: {
+      residency: {
+        name: "Пребиваване и визи",
+        description: "Разрешения за пребиваване, визови заявления и имиграционни процедури",
+      },
+      work: {
+        name: "Разрешения за работа",
+        description: "Трудови разрешения и процедури, свързани със заетост",
+      },
+      business: {
+        name: "Бизнес и фирма",
+        description: "Регистрация на фирма, бизнес лицензи и търговски разрешителни",
+      },
+      healthcare: {
+        name: "Здравеопазване",
+        description: "Здравни осигуровки, медицинска регистрация и достъп до здравни услуги",
+      },
+      education: {
+        name: "Образование",
+        description: "Записване в училище, кандидатстване в университет и академични документи",
+      },
+      driving: {
+        name: "Шофиране и превозни средства",
+        description: "Шофьорска книжка, регистрация на автомобил и транспортни разрешителни",
+      },
+      travel: {
+        name: "Пътуване и документи",
+        description: "Паспорт, документи за пътуване и международни разрешителни",
+      },
+      general: {
+        name: "Обща администрация",
+        description: "Адресна регистрация, удостоверения и общи административни документи",
+      },
+    },
+    de: {
+      residency: {
+        name: "Aufenthalt und Visa",
+        description: "Aufenthaltstitel, Visaanträge und Einwanderungsverfahren",
+      },
+      work: {
+        name: "Arbeitserlaubnisse",
+        description: "Beschäftigungsgenehmigungen und arbeitsbezogene Verfahren",
+      },
+      business: {
+        name: "Unternehmen und Firma",
+        description: "Firmenregistrierung, Gewerbelizenzen und kommerzielle Genehmigungen",
+      },
+      healthcare: {
+        name: "Gesundheitswesen",
+        description: "Krankenversicherung, medizinische Registrierung und Zugang zur Gesundheitsversorgung",
+      },
+      education: {
+        name: "Bildung",
+        description: "Schulanmeldung, Universitätsbewerbungen und akademische Nachweise",
+      },
+      driving: {
+        name: "Fahren und Fahrzeuge",
+        description: "Führerschein, Fahrzeugzulassung und verkehrsbezogene Genehmigungen",
+      },
+      travel: {
+        name: "Reisen und Dokumente",
+        description: "Reisepass, Reisedokumente und internationale Genehmigungen",
+      },
+      general: {
+        name: "Allgemeine Verwaltung",
+        description: "Adressanmeldung, Bescheinigungen und allgemeine Verwaltungsunterlagen",
+      },
+    },
+  }
+
+  const match = localized[language]?.[category.id]
+  return match ? { ...category, ...match } : category
+}
+
 export function BrowseCategories({ onSelectCategory }: BrowseCategoriesProps) {
+  const { translate: tr, language } = useI18n()
+  const proceduresLabel = language === "bg" ? "процедури" : language === "de" ? "Verfahren" : "procedures"
+
   return (
     <motion.div
       variants={containerVariants}
@@ -122,33 +202,37 @@ export function BrowseCategories({ onSelectCategory }: BrowseCategoriesProps) {
       animate="visible"
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
     >
-      {categories.map((category) => (
-        <motion.div key={category.id} variants={itemVariants}>
-          <Card 
-            className="h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 group"
-            onClick={() => onSelectCategory(category)}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start gap-4">
-                <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${category.color}`}>
-                  <category.icon className="h-6 w-6" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{category.name}</h3>
+      {categories.map((category) => {
+        const localizedCategory = getLocalizedCategory(category, language)
+
+        return (
+          <motion.div key={category.id} variants={itemVariants}>
+            <Card
+              className="group h-full cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
+              onClick={() => onSelectCategory(localizedCategory)}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110 ${localizedCategory.color}`}>
+                    <localizedCategory.icon className="h-6 w-6" />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {category.description}
-                  </p>
-                  <Badge variant="secondary" className="mt-3">
-                    {category.procedureCount} procedures
-                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{localizedCategory.name}</h3>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {localizedCategory.description}
+                    </p>
+                    <Badge variant="secondary" className="mt-3">
+                      {localizedCategory.procedureCount} {proceduresLabel}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )
+      })}
     </motion.div>
   )
 }

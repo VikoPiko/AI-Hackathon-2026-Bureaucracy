@@ -5,6 +5,7 @@ import { motion, useInView, useSpring, useTransform } from "motion/react"
 import { Card, CardContent } from "@/components/ui/card"
 import { FileText, CheckCircle2, Clock, TrendingUp, MessageSquare } from "lucide-react"
 import { useQuestionHistory } from "@/hooks/use-question-history"
+import { useI18n } from "@/lib/i18n-context"
 
 interface Stat {
   label: string
@@ -63,7 +64,17 @@ function AnimatedNumber({ value, suffix = "" }: { value: number; suffix?: string
 }
 
 export function StatsOverview() {
+  const { translate: tr, language } = useI18n()
   const { history, isLoaded, getStats } = useQuestionHistory()
+  const copy = {
+    statsDocuments: language === "bg" ? "Анализирани документи" : language === "de" ? "Analysierte Dokumente" : "Documents Analyzed",
+    statsDocumentsBody: language === "bg" ? "Общо анализи на документи" : language === "de" ? "Gesamte Dokumentanalysen" : "Total document analyses",
+    statsQuestions: language === "bg" ? "Зададени въпроси" : language === "de" ? "Gestellte Fragen" : "Questions Asked",
+    statsQuestionsBody: language === "bg" ? "Общо въпроси" : language === "de" ? "Gesamtzahl der Fragen" : "Total questions",
+    statsCompletedBody: language === "bg" ? "Успешно отговорени" : language === "de" ? "Erfolgreich beantwortet" : "Successfully answered",
+    statsTimeSaved: language === "bg" ? "Спестено време" : language === "de" ? "Gesparte Zeit" : "Time Saved",
+    statsTimeSavedBody: language === "bg" ? "Оценени часове" : language === "de" ? "Geschätzte Stunden" : "Hours estimated",
+  }
   
   // Calculate stats from real data
   const stats = useMemo(() => {
@@ -83,34 +94,34 @@ export function StatsOverview() {
 
   const statItems: Stat[] = [
     {
-      label: "Documents Analyzed",
+      label: copy.statsDocuments,
       value: stats.totalDocuments,
       icon: FileText,
-      description: "Total document analyses",
+      description: copy.statsDocumentsBody,
       color: "text-primary",
       bgColor: "bg-primary/10",
     },
     {
-      label: "Questions Asked",
+      label: copy.statsQuestions,
       value: stats.totalQuestions,
       icon: MessageSquare,
-      description: "Total questions",
+      description: copy.statsQuestionsBody,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
     },
     {
-      label: "Completed",
+      label: tr("common.completed"),
       value: stats.completedQuestions,
       icon: CheckCircle2,
-      description: "Successfully answered",
+      description: copy.statsCompletedBody,
       color: "text-accent",
       bgColor: "bg-accent/10",
     },
     {
-      label: "Time Saved",
+      label: copy.statsTimeSaved,
       value: Math.round(timeSaved * 10) / 10,
       icon: TrendingUp,
-      description: "Hours estimated",
+      description: copy.statsTimeSavedBody,
       color: "text-green-500",
       bgColor: "bg-green-500/10",
       suffix: "h",
@@ -149,13 +160,14 @@ export function StatsOverview() {
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
     >
       {statItems.map((stat, index) => (
-        <motion.div key={stat.label} variants={itemVariants}>
+        <motion.div key={stat.label} variants={itemVariants} className="h-full">
           <motion.div
             whileHover={{ scale: 1.02, y: -4 }}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="h-full"
           >
-            <Card className="relative overflow-hidden group cursor-default">
+            <Card className="group relative h-full cursor-default overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div>

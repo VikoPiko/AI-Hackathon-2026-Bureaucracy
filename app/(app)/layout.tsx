@@ -185,7 +185,7 @@ export default function AppLayout({
                 collapsed && "lg:hidden",
               )}
             >
-              ⌘K
+              [Ctrl]+[K]
             </kbd>
           </button>
         </div>
@@ -309,7 +309,7 @@ export default function AppLayout({
             <Search className="h-4 w-4" />
             <span>{tr("appShell.searchFull")}</span>
             <kbd className="ml-2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              ⌘K
+              [Ctrl]+[K]
             </kbd>
           </button>
 

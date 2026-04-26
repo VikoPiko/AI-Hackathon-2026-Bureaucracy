@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -73,6 +73,10 @@ export function OngoingProcesses() {
   const { processes, isLoaded, updateProcess } = useUserProcesses()
   const [selectedProcess, setSelectedProcess] = useState<Process | null>(null)
   const [newDocumentName, setNewDocumentName] = useState("")
+  const visibleProcesses = useMemo(
+    () => [...processes].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, 3),
+    [processes],
+  )
 
   const calculateProgress = (process: Process) => {
     const totalItems = process.steps.length + process.documents.length
@@ -157,8 +161,8 @@ export function OngoingProcesses() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+      <Card className="h-full">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>{tr("processes.title")}</CardTitle>
           <Button variant="ghost" size="sm" asChild className="gap-1">
             <Link href="/history">
@@ -167,8 +171,8 @@ export function OngoingProcesses() {
             </Link>
           </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {processes.length === 0 ? (
+        <CardContent className="space-y-3">
+          {visibleProcesses.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">{tr("processes.empty")}</p>
               <Button asChild className="mt-4">
@@ -176,7 +180,7 @@ export function OngoingProcesses() {
               </Button>
             </div>
           ) : (
-            processes.map((process, index) => {
+            visibleProcesses.map((process, index) => {
               const typeConfig = processTypeConfig[process.type]
               const TypeIcon = typeConfig.icon
               
@@ -189,7 +193,7 @@ export function OngoingProcesses() {
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={() => setSelectedProcess(process)}
-                  className="p-4 rounded-lg border border-border hover:border-primary/30 hover:shadow-md transition-all duration-300 cursor-pointer group"
+                  className="group cursor-pointer rounded-lg border border-border p-3 transition-all duration-300 hover:border-primary/30 hover:shadow-md"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex gap-3 flex-1">
@@ -209,7 +213,7 @@ export function OngoingProcesses() {
                           </Badge>
                         </div>
                         
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                           {process.dueDate && (
                             <span className="flex items-center gap-1">
                               <Clock className="h-3.5 w-3.5" />
@@ -285,7 +289,7 @@ export function OngoingProcesses() {
                 </div>
 
                 {/* Key Info */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {selectedProcess.dueDate && (
                     <div className="p-3 rounded-lg bg-secondary/50">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">

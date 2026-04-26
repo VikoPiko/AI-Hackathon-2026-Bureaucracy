@@ -108,7 +108,7 @@ export function Hero({ onTryDemo }: HeroProps) {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="mx-auto max-w-4xl px-4 text-center sm:px-6"
+          className="relative mx-auto max-w-4xl px-4 text-center sm:px-6"
         >
           {/* Badge */}
           <motion.div variants={itemVariants} className="mb-8">

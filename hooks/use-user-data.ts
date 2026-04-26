@@ -45,6 +45,10 @@ export interface Process {
   documents: ProcessDocument[]
   estimatedCompletion?: string
   notes?: string
+  createdAt?: number
+  updatedAt?: number
+  sourceQuestionId?: string
+  origin?: "manual" | "auto"
 }
 
 export interface Activity {
@@ -295,7 +299,12 @@ export function useUserProcesses() {
 
   const addProcess = useCallback((process: Process) => {
     setProcesses(prev => {
-      const updated = [process, ...prev]
+      const normalized = {
+        ...process,
+        createdAt: process.createdAt ?? Date.now(),
+        updatedAt: process.updatedAt ?? Date.now(),
+      }
+      const updated = [normalized, ...prev]
       localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify(updated))
       return updated
     })
@@ -303,7 +312,7 @@ export function useUserProcesses() {
 
   const updateProcess = useCallback((id: string, updates: Partial<Process>) => {
     setProcesses(prev => {
-      const updated = prev.map(p => p.id === id ? { ...p, ...updates } : p)
+      const updated = prev.map(p => p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p)
       localStorage.setItem(STORAGE_KEYS.PROCESSES, JSON.stringify(updated))
       return updated
     })
@@ -426,6 +435,55 @@ export function createProcessFromResponse(question: string, response: TrackableR
     documents,
     estimatedCompletion: response.timeline?.maximumTime || response.totalEstimatedTime,
     notes: response.summary || `Tracked from question: ${question}`,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    origin: "manual",
+  }
+}
+
+export function createProcessingProcess(
+  question: string,
+  country: string,
+  sourceQuestionId: string,
+  labels?: {
+    waitingForAnswer?: string
+    questionSubmitted?: string
+    questionSubmittedBody?: string
+    answerGeneration?: string
+    answerGenerationBody?: string
+    autoCreatedNotes?: string
+  },
+): Process {
+  const now = Date.now()
+
+  return {
+    id: `process-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    name: question.length > 70 ? `${question.slice(0, 67)}...` : question,
+    type: "residency",
+    status: "in-progress",
+    progress: 10,
+    nextStep: labels?.waitingForAnswer ?? "Waiting for FormWise answer",
+    location: country,
+    steps: [
+      {
+        id: "s-1",
+        name: labels?.questionSubmitted ?? "Question submitted",
+        status: "completed",
+        description: labels?.questionSubmittedBody ?? "FormWise received the request and started processing it.",
+      },
+      {
+        id: "s-2",
+        name: labels?.answerGeneration ?? "Answer generation",
+        status: "current",
+        description: labels?.answerGenerationBody ?? "Searching sources and preparing the response.",
+      },
+    ],
+    documents: [],
+    notes: labels?.autoCreatedNotes ?? `Auto-created from question: ${question}`,
+    createdAt: now,
+    updatedAt: now,
+    sourceQuestionId,
+    origin: "auto",
   }
 }
 

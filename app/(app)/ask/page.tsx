@@ -18,8 +18,9 @@ import type { BureaucracyResponse } from "@/lib/ai/schemas";
 import { getCountryName } from "@/components/app/country-selector";
 import { format } from "date-fns";
 import { useI18n } from "@/lib/i18n-context";
+
 import { useQuestionHistory, validateQuestion, type QuestionHistoryItem } from "@/hooks/use-question-history";
-import { useUserProcesses } from "@/hooks/use-user-data";
+import { createProcessingProcess, createProcessFromResponse, useUserProcesses } from "@/hooks/use-user-data";
 
 const TEMP_CHAT_STORAGE_KEY = "formwise-temporary-chat-enabled";
 
@@ -60,12 +61,22 @@ interface SuggestedFollowUp {
 function AskPageInner() {
   const searchParams = useSearchParams();
   const { translate: tr, language } = useI18n();
+  const processCopy = {
+    waitingForAnswer: language === "bg" ? "Изчаква се отговор от FormWise" : language === "de" ? "Warten auf FormWise-Antwort" : "Waiting for FormWise answer",
+    questionSubmitted: language === "bg" ? "Въпросът е изпратен" : language === "de" ? "Frage gesendet" : "Question submitted",
+    questionSubmittedBody: language === "bg" ? "FormWise получи запитването и започна обработка." : language === "de" ? "FormWise hat die Anfrage erhalten und mit der Verarbeitung begonnen." : "FormWise received the request and started processing it.",
+    answerGeneration: language === "bg" ? "Генериране на отговор" : language === "de" ? "Antwort wird erstellt" : "Answer generation",
+    answerGenerationBody: language === "bg" ? "Търсят се източници и се подготвя отговор." : language === "de" ? "Quellen werden durchsucht und die Antwort wird vorbereitet." : "Searching sources and preparing the response.",
+    autoCreatedNotes: language === "bg" ? "Създадено автоматично от последния въпрос." : language === "de" ? "Automatisch aus der letzten Frage erstellt." : "Auto-created from the latest question.",
+    retryQuestion: language === "bg" ? "Опитай въпроса отново" : language === "de" ? "Frage erneut versuchen" : "Retry the question",
+    processingFailedNotes: language === "bg" ? "Запитването не успя да бъде завършено за:" : language === "de" ? "Die Anfrage konnte nicht abgeschlossen werden für:" : "The request could not be completed for:",
+  }
   const initialQ = searchParams.get("q") ?? "";
   const historyId = searchParams.get("historyId");
   
   // Question history hook
   const { addQuestion, history } = useQuestionHistory();
-  const { trackResponseAsProcess } = useUserProcesses();
+  const { addProcess, updateProcess, trackResponseAsProcess } = useUserProcesses();
   
   // State for loaded history item
   const [loadedHistoryItem, setLoadedHistoryItem] = useState<QuestionHistoryItem | null>(null);
@@ -123,6 +134,11 @@ function AskPageInner() {
   const [suggestedFollowUps, setSuggestedFollowUps] = useState<SuggestedFollowUp[]>(defaultFollowUps.default);
   
   const conversationEndRef = useRef<HTMLDivElement>(null);
+  const answerSeparatorRef = useRef<HTMLDivElement>(null);
+  const skipNextConversationAutoScrollRef = useRef(false);
+  const pendingHistoryAnswerScrollRef = useRef(false);
+  const historyAnswerScrollFrameRef = useRef<number | null>(null);
+  const activeProcessIdRef = useRef<string | null>(null);
 
   const scrollToBottom = useCallback(() => {
     if (conversationEndRef.current) {
@@ -130,11 +146,75 @@ function AskPageInner() {
     }
   }, []);
 
+  const scrollToAnswer = useCallback(() => {
+    if (answerSeparatorRef.current) {
+      const targetTop = window.scrollY + answerSeparatorRef.current.getBoundingClientRect().top - 96;
+      window.scrollTo({
+        top: Math.max(targetTop, 0),
+        behavior: "auto",
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (showConversation && conversationHistory.length > 0) {
+      if (skipNextConversationAutoScrollRef.current) {
+        skipNextConversationAutoScrollRef.current = false;
+        return;
+      }
       scrollToBottom();
     }
   }, [conversationHistory, showConversation, scrollToBottom]);
+
+  useEffect(() => {
+    if (
+      !pendingHistoryAnswerScrollRef.current ||
+      !showConversation ||
+      !loadedHistoryItem?.response ||
+      !bureaucracyResponse ||
+      conversationHistory.length === 0 ||
+      !answerSeparatorRef.current
+    ) {
+      return;
+    }
+
+    let lastTop: number | null = null;
+    let stableFrames = 0;
+    let attempts = 0;
+
+    const waitForStableLayout = () => {
+      const separator = answerSeparatorRef.current;
+      if (!separator) return;
+
+      const currentTop = separator.getBoundingClientRect().top;
+      if (lastTop !== null && Math.abs(currentTop - lastTop) < 1) {
+        stableFrames += 1;
+      } else {
+        stableFrames = 0;
+      }
+
+      lastTop = currentTop;
+      attempts += 1;
+
+      if (stableFrames >= 3 || attempts >= 45) {
+        scrollToAnswer();
+        pendingHistoryAnswerScrollRef.current = false;
+        historyAnswerScrollFrameRef.current = null;
+        return;
+      }
+
+      historyAnswerScrollFrameRef.current = window.requestAnimationFrame(waitForStableLayout);
+    };
+
+    historyAnswerScrollFrameRef.current = window.requestAnimationFrame(waitForStableLayout);
+
+    return () => {
+      if (historyAnswerScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(historyAnswerScrollFrameRef.current);
+        historyAnswerScrollFrameRef.current = null;
+      }
+    };
+  }, [bureaucracyResponse, conversationHistory.length, loadedHistoryItem, scrollToAnswer, showConversation]);
 
   useEffect(() => {
     const stored = localStorage.getItem(TEMP_CHAT_STORAGE_KEY);
@@ -156,10 +236,12 @@ function AskPageInner() {
     if (historyId && history.length > 0) {
       const item = history.find(h => h.id === historyId);
       if (item) {
+        pendingHistoryAnswerScrollRef.current = false;
         setLoadedHistoryItem(item);
         setPrefill("");
         setLastCountry(item.country);
         setShowConversation(true);
+        skipNextConversationAutoScrollRef.current = true;
         
         // Load the response
         if (item.response) {
@@ -189,6 +271,8 @@ function AskPageInner() {
         toast.info(tr("askPage.loadedFromHistory"), {
           description: tr("askPage.loadedFromHistoryBody"),
         });
+
+        pendingHistoryAnswerScrollRef.current = Boolean(item.response);
       }
     }
   }, [historyId, history, tr]);
@@ -217,6 +301,22 @@ function AskPageInner() {
     // Generate unique ID for this question
     const questionId = `q-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     setCurrentQuestionId(questionId);
+
+    if (!temporaryChat) {
+      const processingProcess = createProcessingProcess(question, country, questionId, {
+        waitingForAnswer: processCopy.waitingForAnswer,
+        questionSubmitted: processCopy.questionSubmitted,
+        questionSubmittedBody: processCopy.questionSubmittedBody,
+        answerGeneration: processCopy.answerGeneration,
+        answerGenerationBody: processCopy.answerGenerationBody,
+        autoCreatedNotes: processCopy.autoCreatedNotes,
+      });
+      addProcess(processingProcess);
+      activeProcessIdRef.current = processingProcess.id;
+      setTrackedProcessIds([processingProcess.id]);
+    } else {
+      activeProcessIdRef.current = null;
+    }
 
     // Add user message to conversation
     const userMessage: ConversationMessage = {
@@ -336,6 +436,7 @@ function AskPageInner() {
         setError(tr("askPage.missingSpecificInfo", { country: countryName }));
         toast.dismiss(loadingToast);
       }
+
     } catch (err) {
       console.error("Analysis error:", err);
       setError(tr("askPage.failedAnalyze"));
@@ -515,6 +616,17 @@ function AskPageInner() {
         setConversationHistory(prev => [...prev, assistantMessage]);
         setBureaucracyResponse(response);
 
+        if (!temporaryChat && activeProcessIdRef.current) {
+          const tracked = createProcessFromResponse(question, response, country);
+          updateProcess(activeProcessIdRef.current, {
+            ...tracked,
+            id: activeProcessIdRef.current,
+            progress: 25,
+            sourceQuestionId: questionId,
+            origin: "auto",
+          });
+        }
+
         if (response.needsMoreContext || response.missingContext?.length || response.followUpQuestions?.length) {
           setNeedsMoreInfo(true);
           setMissingContextDetails({
@@ -547,6 +659,13 @@ function AskPageInner() {
       }
     } catch (err) {
       console.error("Ask error:", err);
+      if (!temporaryChat && activeProcessIdRef.current) {
+        updateProcess(activeProcessIdRef.current, {
+          status: "waiting",
+          nextStep: processCopy.retryQuestion,
+          notes: `${processCopy.processingFailedNotes} ${question}`,
+        });
+      }
       setError(tr("askPage.failedAnswer"));
       toast.error(tr("askPage.failedAnswer"), {
         id: loadingToast,
@@ -579,6 +698,12 @@ function AskPageInner() {
     setMissingContextText("");
     setLastSubmittedQuestion("");
     setTrackedProcessIds([]);
+    pendingHistoryAnswerScrollRef.current = false;
+    if (historyAnswerScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(historyAnswerScrollFrameRef.current);
+      historyAnswerScrollFrameRef.current = null;
+    }
+    activeProcessIdRef.current = null;
   };
 
   const toggleConversation = () => {
@@ -609,6 +734,7 @@ function AskPageInner() {
               {tr("askPage.subtitle")}
             </p>
           </div>
+
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
             <div
               className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm transition-colors ${
@@ -622,6 +748,7 @@ function AskPageInner() {
               <span className="hidden sm:inline">{tr("askPage.temporaryChatShort")}</span>
               <Switch checked={temporaryChat} onCheckedChange={handleTemporaryChange} className="scale-75" />
             </div>
+
             {conversationHistory.length > 0 && (
               <Button
                 variant={showConversation ? "default" : "outline"}
@@ -672,6 +799,7 @@ function AskPageInner() {
                   </Button>
                 </div>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 {conversationHistory.map((msg, index) => (
                   <motion.div
@@ -706,6 +834,7 @@ function AskPageInner() {
                         )}
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+
                       {msg.role === 'assistant' && msg.response && (
                         <div className="mt-3 pt-3 border-t border-border/20">
                           <div className="flex flex-wrap gap-2 text-xs">
@@ -763,6 +892,7 @@ function AskPageInner() {
               <Lightbulb className="h-4 w-4" />
               <span>{tr("askPage.suggestionsLabel")}</span>
             </div>
+
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion) => (
                 <Button
@@ -862,6 +992,7 @@ function AskPageInner() {
                   {tr("askPage.missingContextBody")}
                 </p>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 {(missingContextDetails.missingContext.length > 0 || missingContextDetails.followUpQuestions.length > 0) && (
                   <div className="grid gap-3 md:grid-cols-2">
@@ -932,7 +1063,9 @@ function AskPageInner() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
-            <Separator />
+            <div ref={answerSeparatorRef} className="scroll-mt-24">
+              <Separator />
+            </div>
             
             {/* Response meta info */}
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -948,6 +1081,7 @@ function AskPageInner() {
                   </span>
                 )}
               </div>
+
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -994,6 +1128,7 @@ function AskPageInner() {
                   {tr("askPage.followUpSubtitle")}
                 </p>
               </CardHeader>
+
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {suggestedFollowUps.map((followUp, index) => (
@@ -1021,7 +1156,6 @@ function AskPageInner() {
     </div>
   );
 }
-
 
 export default function AskPage() {
   return (

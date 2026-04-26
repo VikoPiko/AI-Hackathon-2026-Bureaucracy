@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { motion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,50 +14,71 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-
-const data = [
-  { day: "Mon", completed: 1, asked: 2 },
-  { day: "Tue", completed: 2, asked: 3 },
-  { day: "Wed", completed: 0, asked: 1 },
-  { day: "Thu", completed: 3, asked: 4 },
-  { day: "Fri", completed: 2, asked: 2 },
-  { day: "Sat", completed: 4, asked: 3 },
-  { day: "Sun", completed: 3, asked: 5 },
-]
-
-const totalCompleted = data.reduce((acc, d) => acc + d.completed, 0)
-const totalAsked = data.reduce((acc, d) => acc + d.asked, 0)
+import { useQuestionHistory } from "@/hooks/use-question-history"
+import { useI18n } from "@/lib/i18n-context"
 
 export function ActivityChart() {
+  const { history } = useQuestionHistory()
+  const { translate: tr, language } = useI18n()
+  const copy = {
+    title: language === "bg" ? "Активност тази седмица" : language === "de" ? "Aktivität diese Woche" : "Activity this week",
+    body: language === "bg" ? "Завършени отговори спрямо зададени въпроси" : language === "de" ? "Abgeschlossene Antworten im Vergleich zu gestellten Fragen" : "Completed answers vs questions asked",
+  }
+
+  const data = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(language === "bg" ? "bg-BG" : language === "de" ? "de-DE" : "en-US", {
+      weekday: "short",
+    })
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date()
+      date.setHours(0, 0, 0, 0)
+      date.setDate(date.getDate() - (6 - index))
+
+      const dayStart = date.getTime()
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000
+      const dayItems = history.filter((item) => item.timestamp >= dayStart && item.timestamp < dayEnd)
+
+      return {
+        day: formatter.format(date),
+        asked: dayItems.filter((item) => item.type === "question").length,
+        completed: dayItems.filter((item) => item.status === "completed").length,
+      }
+    })
+  }, [history, language])
+
+  const totalCompleted = data.reduce((acc, d) => acc + d.completed, 0)
+  const totalAsked = data.reduce((acc, d) => acc + d.asked, 0)
+
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
+    <Card className="h-full overflow-hidden">
+      <CardHeader className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent/15 text-accent">
               <TrendingUp className="h-4 w-4" />
             </div>
-            Activity this week
+            {copy.title}
           </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1 ml-10">
-            Steps completed vs questions asked
+          <p className="ml-10 mt-1 text-xs text-muted-foreground">
+            {copy.body}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-            {totalCompleted} completed
+          <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
+            {totalCompleted} {tr("common.completed").toLowerCase()}
           </Badge>
-          <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20">
-            {totalAsked} asked
+          <Badge variant="outline" className="border-accent/20 bg-accent/5 text-accent">
+            {totalAsked} {tr("common.questions").toLowerCase()}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="h-[180px] -ml-4 -mr-2"
+          className="h-[220px] w-full sm:h-[240px]"
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
