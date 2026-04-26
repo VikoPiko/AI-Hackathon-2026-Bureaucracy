@@ -13,6 +13,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { useAuth } from "@/lib/auth/context"
+import { COUNTRIES, CountryCodeBadge } from "@/lib/countries"
 import { useI18n } from "@/lib/i18n-context"
 import { useTheme } from "@/lib/theme/context"
 import { categories } from "@/components/app/browse-categories"
@@ -45,17 +46,6 @@ export function useCommandPalette() {
   }
   return ctx
 }
-
-const countries = [
-  { code: "BG", name: "Bulgaria", flag: "\u{1F1E7}\u{1F1EC}" },
-  { code: "DE", name: "Germany", flag: "\u{1F1E9}\u{1F1EA}" },
-  { code: "NL", name: "Netherlands", flag: "\u{1F1F3}\u{1F1F1}" },
-  { code: "PT", name: "Portugal", flag: "\u{1F1F5}\u{1F1F9}" },
-  { code: "ES", name: "Spain", flag: "\u{1F1EA}\u{1F1F8}" },
-  { code: "FR", name: "France", flag: "\u{1F1EB}\u{1F1F7}" },
-  { code: "PL", name: "Poland", flag: "\u{1F1F5}\u{1F1F1}" },
-  { code: "AT", name: "Austria", flag: "\u{1F1E6}\u{1F1F9}" },
-]
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
@@ -180,13 +170,13 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
           <CommandSeparator />
 
           <CommandGroup heading={tr("commandPalette.switchCountry")}>
-            {countries.map((c) => (
+            {COUNTRIES.map((c) => (
               <CommandItem
                 key={c.code}
                 value={`country ${c.name} ${c.code}`}
                 onSelect={() => run(() => setCountry(c.code))}
               >
-                <span className="text-base leading-none">{c.flag}</span>
+                <CountryCodeBadge code={c.code} />
                 {c.name}
                 <span className="ml-auto text-xs text-muted-foreground">{c.code}</span>
               </CommandItem>

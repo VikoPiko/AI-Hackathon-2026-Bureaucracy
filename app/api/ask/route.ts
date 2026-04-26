@@ -2,8 +2,18 @@ import { z } from 'zod';
 import { runSirmaAgent } from '@/lib/sirma-agent';
 import { getSirmaConfig, isSirmaConfigured } from '@/lib/sirma-config';
 import { COUNTRY_NAMES } from '@/lib/types';
-import { scrapeGovernmentInfo, formatGovernmentFallback, extractGovernmentOffice } from '@/lib/government-sources';
+import { scrapeGovernmentInfo, formatGovernmentFallback } from '@/lib/government-sources';
 import type { BureaucracyResponse } from '@/lib/ai/schemas';
+import { buildAskPrompt, createAskTurn } from '@/lib/ask-turn';
+
+const askTurnSchema = z.object({
+  visibleMessage: z.string().min(1),
+  canonicalQuestion: z.string().min(1),
+  turnType: z.enum(['new_question', 'follow_up', 'refinement']),
+  refinementContext: z.string().optional(),
+  contextDigest: z.string().optional(),
+  searchQuery: z.string().min(1),
+});
 
 const askRequestSchema = z.object({
   text: z.string().trim().min(1),
@@ -15,6 +25,14 @@ const askRequestSchema = z.object({
     content: z.string(),
   })).optional().describe("Previous conversation for context in follow-up questions"),
   isFollowUp: z.boolean().optional().default(false).describe("Whether this is a follow-up to a previous question"),
+  sessionId: z.string().optional(),
+  contextId: z.string().optional(),
+  previousAnswer: z.string().optional(),
+  previousResponseSummary: z.string().optional(),
+  refinementContext: z.string().optional(),
+  originalQuestion: z.string().optional(),
+  turn: askTurnSchema.optional(),
+  debugPrompt: z.boolean().optional().default(false),
 });
 
 type NormalizableResponse = Partial<BureaucracyResponse> & {
@@ -37,7 +55,49 @@ export async function POST(req: Request) {
       );
     }
 
-    const { text, country, language, documentContext, conversationHistory, isFollowUp } = payload.data;
+    const {
+      text,
+      country,
+      language,
+      documentContext,
+      conversationHistory,
+      isFollowUp,
+      sessionId,
+      contextId,
+      previousAnswer,
+      previousResponseSummary,
+      refinementContext,
+      originalQuestion,
+      turn,
+      debugPrompt,
+    } = payload.data;
+
+    const countryName = COUNTRY_NAMES[country] || country;
+    const askTurn = turn ?? createAskTurn({
+      text,
+      visibleMessage: text,
+      canonicalQuestion: originalQuestion || text,
+      turnType: refinementContext ? 'refinement' : isFollowUp ? 'follow_up' : 'new_question',
+      refinementContext,
+      contextDigest: previousAnswer || previousResponseSummary,
+      conversationHistory,
+    });
+    const procedureQuery = askTurn.searchQuery;
+    const message = buildAskPrompt({
+      turn: askTurn,
+      country,
+      language,
+      documentContext,
+      contextId,
+      conversationHistory,
+    });
+
+    if (debugPrompt) {
+      return Response.json({
+        turn: askTurn,
+        prompt: message,
+      });
+    }
 
     if (!isSirmaConfigured()) {
       return Response.json(
@@ -50,179 +110,21 @@ export async function POST(req: Request) {
     }
 
     const config = getSirmaConfig();
-    const countryName = COUNTRY_NAMES[country] || country;
-
-    // Build the enhanced message with all required detail
-    let message = '';
-
-    if (isFollowUp && conversationHistory && conversationHistory.length > 0) {
-      // Follow-up question format
-      const previousQuestion = conversationHistory[conversationHistory.length - 2]?.content || 'Not available';
-      const previousAnswer = conversationHistory[conversationHistory.length - 1]?.content || 'Not available';
-      
-      message = `[${language.toUpperCase()}] Country: ${countryName}
-
-THIS IS A FOLLOW-UP QUESTION to a previous conversation.
-
-PREVIOUS QUESTION: ${previousQuestion}
-
-PREVIOUS ANSWER SUMMARY:
-${previousAnswer.slice(0, 2000)}${previousAnswer.length > 2000 ? '...' : ''}
-
-CURRENT FOLLOW-UP QUESTION: ${text}
-${documentContext ? `\nContext from uploaded document:\n${documentContext}` : ''}
-
-IMPORTANT: 
-1. Reference the previous context when answering
-2. Address the specific aspect the user is asking about
-3. If clarifying the original answer, cite the specific part
-4. If adding new information, cite official sources
-5. If this question is outside the original scope, indicate this clearly
-`;
-    } else {
-      // New question format with enhanced detail requirements
-      message = `[${language.toUpperCase()}] Country: ${countryName}
-
-User question: ${text}
-${documentContext ? `\nContext from uploaded document:\n${documentContext}` : ''}
-
-CRITICAL INSTRUCTIONS - Provide a COMPREHENSIVE, DETAILED response following this EXACT structure:
-
-## REQUIRED RESPONSE FORMAT (JSON):
-
-{
-  "procedureName": "Official name of the procedure",
-  "difficulty": "easy | moderate | complex",
-  "totalEstimatedTime": "Total time (e.g., 2-4 weeks)",
-  
-  "summary": "Comprehensive 3-5 sentence summary of the procedure",
-  "detailedSummary": "Extended summary covering key points and important considerations",
-  
-  "legalFoundation": {
-    "lawName": "Specific law/regulation name",
-    "article": "Article/section number if known",
-    "year": "Year of law or last amendment",
-    "url": "Official URL to the law if available",
-    "lastVerified": "Date of last verification (e.g., 'April 2026')"
-  },
-  
-  "eligibility": {
-    "eligibleGroups": ["Who can apply (e.g., citizens, permanent residents)"],
-    "prerequisites": ["Required conditions (e.g., residence permit, age requirement)"],
-    "exceptions": ["Special cases if applicable"],
-    "exclusions": ["Who should NOT use this procedure"]
-  },
-
-  "steps": [
-    {
-      "number": 1,
-      "title": "Clear, actionable step title",
-      "description": "EXACTLY what to do - be very specific and detailed",
-      "estimatedTime": "Time for this step (e.g., '1-2 days')",
-      "tips": "Practical tips to avoid common pitfalls",
-      "officialSource": "URL to official instructions if available",
-      "formReference": "Form number and name if applicable",
-      "potentialIssues": ["Common issue 1", "Common issue 2"]
-    }
-  ],
-
-  "requiredDocuments": [
-    {
-      "name": "Official document/form name",
-      "description": "What this document is and why it's needed",
-      "required": true,
-      "whereToGet": "Where to obtain (office name, website, etc.)",
-      "validityPeriod": "How long valid (e.g., '3 months', '1 year')",
-      "requirements": ["Specific requirement 1", "Specific requirement 2"],
-      "cost": "Cost (e.g., 'Free', '15 EUR')",
-      "translationRequired": false,
-      "legalBasis": "Law requiring this document"
-    }
-  ],
-
-  "costs": {
-    "governmentFees": "Official fees with basis (e.g., '50 EUR based on Article 25 of Law X')",
-    "translationCosts": "Translation costs if required",
-    "notarizationCosts": "Notarization costs if required",
-    "otherCosts": [{"item": "Item name", "cost": "Cost"}],
-    "paymentMethods": ["Accepted payment methods"],
-    "totalEstimate": "Total estimated cost"
-  },
-
-  "timeline": {
-    "minimumTime": "Minimum processing time",
-    "maximumTime": "Maximum processing time if no issues",
-    "factorsAffectingTimeline": ["Factor 1", "Factor 2"],
-    "expeditedOptions": true,
-    "expeditedTime": "Expedited time if available",
-    "expeditedCost": "Additional cost for expedited",
-    "afterApproval": "What happens after approval"
-  },
-
-  "officeInfo": {
-    "name": "Official office/institution name",
-    "address": "Complete physical address",
-    "website": "Official website URL",
-    "phone": "Phone number",
-    "email": "Email if available",
-    "hours": "Working hours (e.g., 'Mon-Fri 9:00-17:00')",
-    "appointmentRequired": true,
-    "languages": ["Languages of service"],
-    "jurisdiction": "Area served"
-  },
-
-  "warnings": {
-    "commonRejections": [{"reason": "Reason", "howToAvoid": "How to prevent"}],
-    "scams": ["Known scams to avoid"],
-    "whatNotToDo": ["Actions to avoid"]
-  },
-
-  "relatedProcedures": [
-    {"name": "Related procedure name", "description": "How it relates", "order": "before | after | alternative"}
-  ],
-
-  "confidenceScore": 0.82,
-  "confidenceReasons": [
-    "Official source or legal basis was identified",
-    "Key steps, required documents, costs, and timeline are present"
-  ],
-  "needsMoreContext": false,
-  "missingContext": [],
-  "followUpQuestions": [],
-
-  "scope": {
-    "covers": ["What this procedure covers"],
-    "doesNotCover": ["What this procedure does NOT cover"]
-  },
-
-  "additionalNotes": "Any other important information"
-}
-
-## STRICT RULES:
-1. NEVER fabricate information. If you don't know exact fees, hours, or forms, use "Check with official source" or "Varies by case"
-2. Cite legal basis for all procedures and costs
-3. Be EXHAUSTIVE in step descriptions - include every sub-step
-4. Include practical tips based on common issues
-5. Specify exact form numbers when known
-6. Mention recent changes or reforms if relevant
-7. Cover edge cases and variations
-8. confidenceScore MUST be between 0 and 1. Use lower values when official sources are weak, the user's situation is underspecified, or fields are unknown.
-9. If the user's question lacks important facts (nationality, current status, city/region, procedure subtype, deadline, family/employment situation), set needsMoreContext=true and list exact missingContext and followUpQuestions while still giving safe general guidance.
-
-Return ONLY the JSON object. No markdown fences, no explanations before or after.`;
-
-      // Add conversation history if present
-      if (conversationHistory && conversationHistory.length > 0) {
-        message += `\n\nConversation history for context:\n`;
-        conversationHistory.forEach(msg => {
-          message += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
-        });
-        message += `\nUse this context to provide consistent, informed answers.`;
-      }
-    }
 
     try {
-      const result = await runSirmaAgent(config.agentId, message);
+      let result;
+      try {
+        result = await runSirmaAgent(config.agentId, message, {
+          sessionId,
+        });
+      } catch (agentError) {
+        if (!sessionId) {
+          throw agentError;
+        }
+
+        console.warn('Sirma session continuation failed; retrying once without sessionId:', agentError);
+        result = await runSirmaAgent(config.agentId, message);
+      }
 
       // Parse JSON response
       let parsedResponse;
@@ -245,7 +147,7 @@ Return ONLY the JSON object. No markdown fences, no explanations before or after
         parsedResponse = JSON.parse(jsonStr);
       } catch {
         // If JSON parsing fails, try to extract structured data from text
-        parsedResponse = parseTextResponse(result.content, text);
+        parsedResponse = parseTextResponse(result.content, procedureQuery);
         rawContent = result.content;
       }
 
@@ -272,14 +174,17 @@ Return ONLY the JSON object. No markdown fences, no explanations before or after
       try {
         const { sources, scrapedContent, success } = await scrapeGovernmentInfo(
           country,
-          text,
+          procedureQuery,
           { maxSources: 3 }
         );
         
         if (success && scrapedContent) {
-          const fallbackContent = formatGovernmentFallback(text, scrapedContent, sources);
+          const fallbackContent = formatGovernmentFallback(procedureQuery, scrapedContent, sources);
+          const notes = askTurn.refinementContext
+            ? `${fallbackContent}\n\nUser-provided context applied to this procedure:\n${askTurn.refinementContext}`
+            : fallbackContent;
           const fallbackResponse = normalizeProcedureResponse({
-              procedureName: `Information about: ${text.slice(0, 50)}`,
+              procedureName: `Information about: ${procedureQuery.slice(0, 50)}`,
               difficulty: "moderate" as const,
               totalEstimatedTime: "Varies - check official sources",
               summary: `Information retrieved from official government sources for ${countryName}. Please verify with official authorities for exact requirements.`,
@@ -314,7 +219,7 @@ Return ONLY the JSON object. No markdown fences, no explanations before or after
                 whatNotToDo: ["Never pay fees to unofficial intermediaries"],
               },
               relatedProcedures: [],
-              additionalNotes: fallbackContent,
+              additionalNotes: notes,
               confidenceScore: 0.38,
               confidenceReasons: [
                 "The primary AI procedure engine failed, so this uses limited government-source fallback content.",
