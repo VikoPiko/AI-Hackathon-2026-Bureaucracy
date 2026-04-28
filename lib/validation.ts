@@ -35,7 +35,7 @@ export const ingestRequestSchema = z.object({
 export const chatRequestSchema = z.object({
   question: z.string().min(1).max(2000),
   language: languageCodeSchema.default('en'),
-  country: countryCodeSchema.default('DE'),
+  country: countryCodeSchema.default('BG'),
 });
 
 // Analyze request validation
@@ -43,13 +43,13 @@ export const analyzeRequestSchema = z.object({
   text: z.string().min(1).optional(),
   file_url: z.string().url().optional(),
   document_type: z.enum(['rental', 'employment', 'official_letter', 'contract', 'other']).default('contract'),
-  country: countryCodeSchema.default('DE'),
+  country: countryCodeSchema.default('BG'),
 });
 
 // Journey request validation
 export const journeyRequestSchema = z.object({
   from_country: z.string().default('unknown'),
-  to_country: countryCodeSchema.default('DE'),
+  to_country: countryCodeSchema.default('BG'),
   nationality: z.string().optional(),
   purpose: z.enum(['work', 'study', 'retirement', 'family', 'digital_nomad']).default('work'),
   language: languageCodeSchema.default('en'),

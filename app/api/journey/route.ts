@@ -13,7 +13,7 @@ import { RelocationJourneySchema, COUNTRY_NAMES } from '@/lib/types';
 
 const journeyRequestSchema = z.object({
   from_country: z.string().trim().min(2).max(100).default('unknown'),
-  to_country: SupportedCountryInputSchema.default('DE'),
+  to_country: SupportedCountryInputSchema.default('BG'),
   nationality: z.string().trim().min(2).max(100).optional(),
   purpose: z
     .string()

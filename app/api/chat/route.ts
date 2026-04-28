@@ -12,7 +12,7 @@ export const maxDuration = 30;
 const chatRequestSchema = z.object({
   question: z.string().trim().min(1).max(2000),
   language: SupportedLanguageInputSchema.default('en'),
-  country: SupportedCountryInputSchema.default('DE'),
+  country: SupportedCountryInputSchema.default('BG'),
   sessionId: z.string().optional(),
   userId: z.string().optional(),
 });

@@ -804,7 +804,7 @@ export const ourFileRouter = {
     },
   })
     .input(z.object({
-      country: z.string().default('DE'),
+      country: z.string().default('BG'),
       mode: z.enum(['analyze', 'ingest']).default('analyze'),
       document_type: z.string().default('contract'),
     }))

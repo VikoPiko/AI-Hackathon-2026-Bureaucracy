@@ -21,7 +21,7 @@ const analyzeRequestSchema = z
       .max(100)
       .transform(normalizeDocumentType)
       .default('contract'),
-    country: SupportedCountryInputSchema.default('DE'),
+    country: SupportedCountryInputSchema.default('BG'),
     language: SupportedLanguageInputSchema.default('en'),
   })
   .refine((data) => Boolean(data.text || data.file_url), {
