@@ -808,7 +808,7 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
                                     className="flex items-center gap-2 text-sm text-primary hover:underline"
                                   >
                                     <Link2 className="h-4 w-4" />
-                                    Official Source
+                                    {tr("answerDisplay.officialSource")}
                                   </a>
                                 )}
                                 
@@ -1214,11 +1214,11 @@ export function AnswerDisplay({ response }: AnswerDisplayProps) {
             <CardContent>
               <div className="space-y-3">
                 {response.relatedProcedures.map((proc, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <Badge variant="outline" className="flex-shrink-0">
+                  <div key={i} className="grid grid-cols-[100px_1fr] gap-6 items-start">
+                    <Badge variant="outline" className="flex-shrink-0 whitespace-normal justify-center min-w-28">
                       {proc.order === 'before' ? tr("answerDisplay.doFirst") : proc.order === 'after' ? tr("answerDisplay.doNext") : tr("answerDisplay.alternative")}
                     </Badge>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-medium">{proc.name}</p>
                       {proc.description && (
                         <p className="text-sm text-muted-foreground">{proc.description}</p>

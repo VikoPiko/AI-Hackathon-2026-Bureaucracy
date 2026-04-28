@@ -292,7 +292,7 @@ export default function HistoryPage() {
       </motion.div>
 
       <Dialog open={Boolean(selectedItem)} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="max-h-[88vh] w-[min(96vw,960px)] max-w-[960px] overflow-y-auto px-4 sm:px-6">
+        <DialogContent className="max-h-[90vh] w-[min(96vw,1100px)] max-w-[1100px] overflow-y-auto px-4 sm:px-6">
           {selectedItem && (
             <>
               <DialogHeader>

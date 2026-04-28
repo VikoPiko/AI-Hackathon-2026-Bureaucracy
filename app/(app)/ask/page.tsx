@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
@@ -123,27 +123,27 @@ function AskPageInner() {
         ? "Mehr Kontext würde diese Antwort verbessern"
         : tr("askPage.missingContextTitle"),
     body: language === "bg"
-      ? "Моделът отговори предпазливо, но отбеляза детайли, които биха направили процедурата по-точна. Добави ги тук и FormWise ще продължи с пълния контекст."
+        ? "Моделът отговори предпазливо, но отбеляза детайли, които биха направили процедурата по-точна. Добави ги тук и FormWise ще продължи с пълния контекст."
       : language === "de"
         ? "Das Modell hat vorsichtig geantwortet, aber Details markiert, die das Verfahren genauer machen würden. Füge sie hier hinzu und FormWise macht mit dem vollständigen Kontext weiter."
         : tr("askPage.missingContextBody"),
     missingFields: language === "bg"
-      ? "Липсващи полета"
+        ? "Липсващи полета"
       : language === "de"
         ? "Fehlende Angaben"
         : tr("askPage.missingFields"),
     clarifyingQuestions: language === "bg"
-      ? "Уточняващи въпроси"
+        ? "Уточняващи въпроси"
       : language === "de"
         ? "Klärende Fragen"
         : tr("askPage.clarifyingQuestions"),
     placeholder: language === "bg"
-      ? "Пример: Аз съм гражданин на държава извън ЕС, в момента съм в София и кандидатствам за дългосрочно разрешение за пребиваване преди да изтече текущата ми виза..."
+        ? "Пример: Аз съм гражданин на държава извън ЕС, в момента съм в София и кандидатствам за дългосрочно разрешение за пребиваване преди да изтече текущата ми виза..."
       : language === "de"
         ? "Beispiel: Ich bin kein EU-Bürger, befinde mich derzeit in Sofia und beantrage eine langfristige Aufenthaltserlaubnis, bevor mein aktuelles Visum abläuft..."
         : tr("askPage.contextPlaceholder"),
     send: language === "bg"
-      ? "Изпрати с контекст"
+        ? "Изпрати с контекст"
       : language === "de"
         ? "Mit Kontext senden"
         : tr("askPage.sendWithContext"),
@@ -223,6 +223,7 @@ function AskPageInner() {
   const historyAnswerScrollFrameRef = useRef<number | null>(null);
   const generationFollowFrameRef = useRef<number | null>(null);
   const activeProcessIdRef = useRef<string | null>(null);
+  const historyLoadedToastShownRef = useRef<string | null>(null);
 
   const scrollToBottom = useCallback(() => {
     if (conversationEndRef.current) {
@@ -417,6 +418,22 @@ function AskPageInner() {
   }, [bureaucracyResponse, conversationHistory.length, loadedHistoryItem, scrollToAnswer, showConversation]);
 
   useEffect(() => {
+    // Listen for country changes from command palette (ctrl+k menu)
+    const handleCountryChange = (event: CustomEvent) => {
+      const newCountry = event.detail;
+      if (newCountry) {
+        setLastCountry(normalizeCountryCode(newCountry));
+      }
+    };
+    
+    window.addEventListener("formwise:country-changed", handleCountryChange as EventListener);
+    
+    return () => {
+      window.removeEventListener("formwise:country-changed", handleCountryChange as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     const stored = localStorage.getItem(TEMP_CHAT_STORAGE_KEY);
     setTemporaryChat(stored === "true");
   }, []);
@@ -434,6 +451,11 @@ function AskPageInner() {
   // Load history item when historyId is provided
   useEffect(() => {
     if (historyId && history.length > 0) {
+      // Skip if we already showed the toast for this historyId
+      if (historyLoadedToastShownRef.current === historyId) {
+        return;
+      }
+
       const item = history.find(h => h.id === historyId);
       if (item) {
         const thread = item.threadId ? threads.find((entry) => entry.id === item.threadId) : null;
@@ -449,10 +471,15 @@ function AskPageInner() {
         if (thread && context) {
           setContextWindows(thread.contexts);
           loadContextWindow(context, thread.id);
-          toast.info(tr("askPage.loadedFromHistory"), {
-            description: tr("askPage.loadedFromHistoryBody"),
-          });
           pendingHistoryAnswerScrollRef.current = Boolean(context.lastResponse);
+          
+          // Show toast only once for this historyId
+          if (historyLoadedToastShownRef.current !== historyId) {
+            toast.info(tr("askPage.loadedFromHistory"), {
+              description: tr("askPage.loadedFromHistoryBody"),
+            });
+            historyLoadedToastShownRef.current = historyId;
+          }
           return;
         }
         
@@ -518,11 +545,16 @@ function AskPageInner() {
         setConversationHistory(assistantMessage ? [userMessage, assistantMessage] : [userMessage]);
         setLastSubmittedQuestion(item.fullQuestion);
         
-        toast.info(tr("askPage.loadedFromHistory"), {
-          description: tr("askPage.loadedFromHistoryBody"),
-        });
+        // Show toast only once for this historyId
+        if (historyLoadedToastShownRef.current !== historyId) {
+          toast.info(tr("askPage.loadedFromHistory"), {
+            description: tr("askPage.loadedFromHistoryBody"),
+          });
+          historyLoadedToastShownRef.current = historyId;
+        }
 
         pendingHistoryAnswerScrollRef.current = Boolean(item.response);
+        return;
       }
     }
   }, [historyId, history, threads, tr, loadContextWindow]);
@@ -1234,24 +1266,23 @@ function AskPageInner() {
 
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
             <div
-              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm transition-colors ${
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm transition-colors ${
                 temporaryChat
                   ? "border-amber-400/60 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
                   : "border-border bg-background/80 text-muted-foreground"
               }`}
               title={tr("askPage.temporaryChatDescription")}
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className="h-4 w-4" />
               <span className="hidden sm:inline">{tr("askPage.temporaryChatShort")}</span>
-              <Switch checked={temporaryChat} onCheckedChange={handleTemporaryChange} className="scale-75" />
+              <Switch checked={temporaryChat} onCheckedChange={handleTemporaryChange} />
             </div>
 
             {conversationHistory.length > 0 && (
               <Button
                 variant={showConversation ? "default" : "outline"}
                 size="sm"
-                onClick={toggleConversation}
-                className="gap-2"
+                onClick={toggleConversation} className="gap-2 px-4 py-2"
               >
                 <MessageCircle className="h-4 w-4" />
                 {showConversation ? tr("askPage.hideHistory") : tr("askPage.showHistory")}
@@ -1275,8 +1306,8 @@ function AskPageInner() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <Card className="max-h-[500px] overflow-y-auto">
-              <CardHeader className="pb-3 sticky top-0 bg-card z-10">
+            <Card className="max-h-[500px] overflow-y-auto pt-0">
+              <CardHeader className="pb-3 pt-6 sticky top-0 bg-card z-10">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-primary" />
@@ -1590,8 +1621,7 @@ function AskPageInner() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={toggleConversation}
-                  className="gap-2"
+                  onClick={toggleConversation} className="gap-2 px-4 py-2"
                 >
                   <MessageCircle className="h-4 w-4" />
                   {tr("askPage.viewInChat")}
@@ -1673,7 +1703,7 @@ function AskPageInner() {
                       size="sm"
                       onClick={() => handleFollowUp(followUp.question)}
                       disabled={isLoading}
-                      className="text-left justify-start h-auto py-2 px-3"
+                      className="text-left justify-start h-auto py-3 px-4 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 hover:border-primary/40 hover:shadow-md transition-all"
                     >
                       <div className="flex flex-col items-start">
                         <span className="text-xs text-muted-foreground mb-1">{followUp.category}</span>
