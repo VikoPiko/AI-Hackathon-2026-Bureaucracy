@@ -107,19 +107,19 @@ Return ONLY the JSON, no explanations before or after.`;
       try {
         // Find JSON in the response (might be wrapped in markdown code blocks)
         let jsonStr = result.content;
-        
+
         // Remove markdown code block markers if present
         jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
         jsonStr = jsonStr.replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-        
+
         // Try to find JSON object in the text
         const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           jsonStr = jsonMatch[0];
         }
-        
+
         parsedResponse = JSON.parse(jsonStr);
-        
+
         // Validate required fields exist
         if (!parsedResponse.risk_level) {
           throw new Error('Missing risk_level');
@@ -140,7 +140,7 @@ Return ONLY the JSON, no explanations before or after.`;
       return Response.json(parsedResponse);
     } catch (error) {
       console.error('Sirma analyze error:', error);
-      
+
       // Try web scraping fallback for government sources
       try {
         const procedure = `document analysis ${document_type} ${countryName}`;
@@ -149,7 +149,7 @@ Return ONLY the JSON, no explanations before or after.`;
           procedure,
           { maxSources: 2 }
         );
-        
+
         if (success && scrapedContent) {
           const fallbackContent = formatGovernmentFallback(procedure, scrapedContent, sources);
           return Response.json({
@@ -166,7 +166,7 @@ Return ONLY the JSON, no explanations before or after.`;
       } catch (scrapeError) {
         console.warn('Government scrape fallback also failed:', scrapeError);
       }
-      
+
       return Response.json(
         {
           error: 'Failed to analyze document',

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
   // Use singleton ChromaDB client from rag.ts
   const chroma = getChromaClient();
-  
+
   const collection = await chroma.getOrCreateCollection({
     name: 'procedures',
     metadata: { 'hnsw:space': 'cosine' },
@@ -37,19 +37,19 @@ export async function POST(req: Request) {
   const pid = metadata?.procedure_id || `doc-${ts}`;
   const ids = chunks.map((_, i) => `${pid}-${i}-${ts}`);
   const metadatas = chunks.map(() => ({
-    country:       metadata?.country      || 'DE',
-    category:      metadata?.category     || 'general',
-    source_url:    metadata?.source_url   || file_url || '',
-    language:      metadata?.language     || 'en',
-    procedure_id:  pid,
-    title:         metadata?.title        || '',
-    difficulty:    metadata?.difficulty   || 'moderate',
+    country: metadata?.country || 'DE',
+    category: metadata?.category || 'general',
+    source_url: metadata?.source_url || file_url || '',
+    language: metadata?.language || 'en',
+    procedure_id: pid,
+    title: metadata?.title || '',
+    difficulty: metadata?.difficulty || 'moderate',
   }));
 
   await collection.upsert({ ids, documents: chunks, embeddings, metadatas });
 
-  return Response.json({ 
-    chunks_created: chunks.length, 
+  return Response.json({
+    chunks_created: chunks.length,
     procedure_id: pid,
     timestamp: new Date().toISOString(),
   });

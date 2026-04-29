@@ -29,13 +29,13 @@ export default function LoginPage() {
     setError("")
 
     const result = await login(formData.email, formData.password)
-    
+
     if (result.success) {
       router.push("/dashboard")
     } else {
       setError(result.error || tr("auth.login.failed"))
     }
-    
+
     setIsLoading(false)
   }
 
@@ -90,8 +90,8 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">{tr("common.password")}</Label>
-                <Link 
-                  href="#" 
+                <Link
+                  href="#"
                   className="text-sm text-primary hover:underline"
                 >
                   {tr("auth.login.forgot")}

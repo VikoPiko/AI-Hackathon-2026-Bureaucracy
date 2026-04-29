@@ -67,7 +67,7 @@ function BrowsePageInner() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-          <Card className="bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-accent/20">
+        <Card className="bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-accent/20">
           <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-5">
             <div className="space-y-1">
               <h3 className="font-semibold text-accent">{tr("browse.bannerTitle")}</h3>
@@ -118,9 +118,9 @@ function BrowsePageInner() {
                     <ArrowRight className="h-3 w-3" />
                   </Link>
                 </Button>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
+                <Button
+                  size="icon"
+                  variant="ghost"
                   className="h-6 w-6"
                   onClick={() => setShowAskPrompt(true)}
                 >

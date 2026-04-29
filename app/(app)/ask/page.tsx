@@ -123,41 +123,41 @@ function AskPageInner() {
         ? "Mehr Kontext würde diese Antwort verbessern"
         : tr("askPage.missingContextTitle"),
     body: language === "bg"
-        ? "Моделът отговори предпазливо, но отбеляза детайли, които биха направили процедурата по-точна. Добави ги тук и FormWise ще продължи с пълния контекст."
+      ? "Моделът отговори предпазливо, но отбеляза детайли, които биха направили процедурата по-точна. Добави ги тук и FormWise ще продължи с пълния контекст."
       : language === "de"
         ? "Das Modell hat vorsichtig geantwortet, aber Details markiert, die das Verfahren genauer machen würden. Füge sie hier hinzu und FormWise macht mit dem vollständigen Kontext weiter."
         : tr("askPage.missingContextBody"),
     missingFields: language === "bg"
-        ? "Липсващи полета"
+      ? "Липсващи полета"
       : language === "de"
         ? "Fehlende Angaben"
         : tr("askPage.missingFields"),
     clarifyingQuestions: language === "bg"
-        ? "Уточняващи въпроси"
+      ? "Уточняващи въпроси"
       : language === "de"
         ? "Klärende Fragen"
         : tr("askPage.clarifyingQuestions"),
     placeholder: language === "bg"
-        ? "Пример: Аз съм гражданин на държава извън ЕС, в момента съм в София и кандидатствам за дългосрочно разрешение за пребиваване преди да изтече текущата ми виза..."
+      ? "Пример: Аз съм гражданин на държава извън ЕС, в момента съм в София и кандидатствам за дългосрочно разрешение за пребиваване преди да изтече текущата ми виза..."
       : language === "de"
         ? "Beispiel: Ich bin kein EU-Bürger, befinde mich derzeit in Sofia und beantrage eine langfristige Aufenthaltserlaubnis, bevor mein aktuelles Visum abläuft..."
         : tr("askPage.contextPlaceholder"),
     send: language === "bg"
-        ? "Изпрати с контекст"
+      ? "Изпрати с контекст"
       : language === "de"
         ? "Mit Kontext senden"
         : tr("askPage.sendWithContext"),
   };
   const initialQ = searchParams.get("q") ?? "";
   const historyId = searchParams.get("historyId");
-  
+
   // Question history hook
   const { addQuestion, history, threads, saveChatTurn } = useQuestionHistory();
   const { addProcess, updateProcess, trackResponseAsProcess } = useUserProcesses();
-  
+
   // State for loaded history item
   const [loadedHistoryItem, setLoadedHistoryItem] = useState<QuestionHistoryItem | null>(null);
-  
+
   const suggestions = [
     tr("askPage.suggestions.s1"),
     tr("askPage.suggestions.s2"),
@@ -199,7 +199,7 @@ function AskPageInner() {
   } | null>(null);
   const [lastSubmittedQuestion, setLastSubmittedQuestion] = useState("");
   const [trackedProcessIds, setTrackedProcessIds] = useState<string[]>([]);
-  
+
   // Question validation state
   const [validationError, setValidationError] = useState<string | null>(null);
   const [validationSuggestions, setValidationSuggestions] = useState<string[]>([]);
@@ -213,7 +213,7 @@ function AskPageInner() {
   const [activeContextId, setActiveContextId] = useState<string | null>(null);
   const [contextWindows, setContextWindows] = useState<ChatContextWindow[]>([]);
   const [answerDiff, setAnswerDiff] = useState<AnswerDiff | null>(null);
-  
+
   const conversationEndRef = useRef<HTMLDivElement>(null);
   const answerSeparatorRef = useRef<HTMLDivElement>(null);
   const answerEndRef = useRef<HTMLDivElement>(null);
@@ -425,9 +425,9 @@ function AskPageInner() {
         setLastCountry(normalizeCountryCode(newCountry));
       }
     };
-    
+
     window.addEventListener("formwise:country-changed", handleCountryChange as EventListener);
-    
+
     return () => {
       window.removeEventListener("formwise:country-changed", handleCountryChange as EventListener);
     };
@@ -472,7 +472,7 @@ function AskPageInner() {
           setContextWindows(thread.contexts);
           loadContextWindow(context, thread.id);
           pendingHistoryAnswerScrollRef.current = Boolean(context.lastResponse);
-          
+
           // Show toast only once for this historyId
           if (historyLoadedToastShownRef.current !== historyId) {
             toast.info(tr("askPage.loadedFromHistory"), {
@@ -482,12 +482,12 @@ function AskPageInner() {
           }
           return;
         }
-        
+
         // Load the response
         if (item.response) {
           setBureaucracyResponse(item.response as BureaucracyResponse & { _generatedAt?: string });
         }
-        
+
         // Add to conversation history
         const userMessage: ConversationMessage = {
           id: item.id,
@@ -544,7 +544,7 @@ function AskPageInner() {
         setActiveThreadId(item.threadId || `thread-${item.id}`);
         setConversationHistory(assistantMessage ? [userMessage, assistantMessage] : [userMessage]);
         setLastSubmittedQuestion(item.fullQuestion);
-        
+
         // Show toast only once for this historyId
         if (historyLoadedToastShownRef.current !== historyId) {
           toast.info(tr("askPage.loadedFromHistory"), {
@@ -615,25 +615,25 @@ function AskPageInner() {
     }
 
     const countryName = getCountryName(country);
-    
+
     const loadingToast = toast.loading(tr("askPage.loadingFor", { country: countryName }), {
       description: tr("askPage.loadingDescription"),
     });
 
     try {
       let documentText: string | undefined;
-      
+
       // Extract text from attached file using server-side API (PDF, DOCX)
       if (file) {
         try {
           const formData = new FormData();
           formData.append('file', file);
-          
+
           const extractRes = await fetch("/api/extract-text", {
             method: "POST",
             body: formData,
           });
-          
+
           if (extractRes.ok) {
             const extractData = await extractRes.json();
             documentText = extractData.text;
@@ -790,13 +790,13 @@ function AskPageInner() {
       setValidationSuggestions(localizedSuggestions);
       setError(localizedMissingInfo[0] || tr("askPage.detailPrompt"));
       setNeedsMoreInfo(true);
-      
+
       toast.warning(tr("askPage.validation.needsMoreDetailsTitle"), {
         description: localizedMissingInfo[0] || tr("askPage.validation.pleaseBeMoreSpecific"),
       });
       return;
     }
-    
+
     // Clear validation state
     setValidationError(null);
     setValidationSuggestions([]);
@@ -856,8 +856,8 @@ function AskPageInner() {
       : options.refinementContext
         ? baseSearchQuery || canonicalQuestion
         : [baseSearchQuery, canonicalQuestion]
-            .filter((part, index, parts): part is string => Boolean(part) && parts.indexOf(part) === index)
-            .join(" - ") || canonicalQuestion;
+          .filter((part, index, parts): part is string => Boolean(part) && parts.indexOf(part) === index)
+          .join(" - ") || canonicalQuestion;
     const askTurn = createAskTurn({
       text: canonicalQuestion,
       visibleMessage,
@@ -928,24 +928,24 @@ function AskPageInner() {
     });
 
     const countryName = getCountryName(normalizedCountry);
-    
+
     const loadingToast = toast.loading(tr("askPage.searchingFor", { country: countryName }), {
       description: tr("askPage.providingGuidance"),
     });
 
     try {
       let documentText: string | undefined;
-      
+
       if (file) {
         try {
           const formData = new FormData();
           formData.append('file', file);
-          
+
           const extractRes = await fetch("/api/extract-text", {
             method: "POST",
             body: formData,
           });
-          
+
           if (extractRes.ok) {
             const extractData = await extractRes.json();
             documentText = extractData.text;
@@ -1266,11 +1266,10 @@ function AskPageInner() {
 
           <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
             <div
-              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm transition-colors ${
-                temporaryChat
+              className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm transition-colors ${temporaryChat
                   ? "border-amber-400/60 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
                   : "border-border bg-background/80 text-muted-foreground"
-              }`}
+                }`}
               title={tr("askPage.temporaryChatDescription")}
             >
               <RefreshCw className="h-4 w-4" />
@@ -1338,21 +1337,18 @@ function AskPageInner() {
                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-lg p-4 ${
-                        msg.role === 'user'
+                      className={`max-w-[85%] rounded-lg p-4 ${msg.role === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs font-medium ${
-                          msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                        }`}>
+                        <span className={`text-xs font-medium ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                          }`}>
                           {msg.role === 'user' ? tr("askPage.you") : 'FormWise'}
                         </span>
-                        <span className={`text-xs ${
-                          msg.role === 'user' ? 'text-primary-foreground/50' : 'text-muted-foreground/50'
-                        }`}>
+                        <span className={`text-xs ${msg.role === 'user' ? 'text-primary-foreground/50' : 'text-muted-foreground/50'
+                          }`}>
                           {format(msg.timestamp, 'HH:mm')}
                         </span>
                         {msg.temporary && (
@@ -1590,7 +1586,7 @@ function AskPageInner() {
             <div ref={answerSeparatorRef} className="scroll-mt-24">
               <Separator />
             </div>
-            
+
             {/* Response meta info */}
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">

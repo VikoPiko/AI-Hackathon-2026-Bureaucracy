@@ -36,13 +36,13 @@ export default function RegisterPage() {
     }
 
     const result = await register(formData.email, formData.password, formData.name)
-    
+
     if (result.success) {
       router.push("/dashboard")
     } else {
       setError(result.error || tr("auth.register.failed"))
     }
-    
+
     setIsLoading(false)
   }
 

@@ -16,7 +16,7 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <motion.header 
+      <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}

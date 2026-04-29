@@ -169,7 +169,7 @@ export async function POST(req: Request) {
       return Response.json({ response: parsedResponse });
     } catch (error) {
       console.error('Sirma ask error:', error);
-      
+
       // Try web scraping fallback for government sources
       try {
         const { sources, scrapedContent, success } = await scrapeGovernmentInfo(
@@ -177,66 +177,66 @@ export async function POST(req: Request) {
           procedureQuery,
           { maxSources: 3 }
         );
-        
+
         if (success && scrapedContent) {
           const fallbackContent = formatGovernmentFallback(procedureQuery, scrapedContent, sources);
           const notes = askTurn.refinementContext
             ? `${fallbackContent}\n\nUser-provided context applied to this procedure:\n${askTurn.refinementContext}`
             : fallbackContent;
           const fallbackResponse = normalizeProcedureResponse({
-              procedureName: `Information about: ${procedureQuery.slice(0, 50)}`,
-              difficulty: "moderate" as const,
-              totalEstimatedTime: "Varies - check official sources",
-              summary: `Information retrieved from official government sources for ${countryName}. Please verify with official authorities for exact requirements.`,
-              detailedSummary: fallbackContent,
-              legalFoundation: {
-                lawName: "Official government sources",
-                url: sources[0]?.baseUrl || "",
-                lastVerified: new Date().toISOString().split('T')[0],
-              },
-              eligibility: {
-                eligibleGroups: ["Check with official source"],
-              },
-              steps: [],
-              requiredDocuments: [],
-              costs: {
-                governmentFees: "Varies - check official sources",
-              },
-              timeline: {
-                minimumTime: "Varies",
-                maximumTime: "Check with official source",
-              },
-              officeInfo: {
-                name: sources[0]?.name || "Contact local authorities",
-                address: "",
-                website: sources[0]?.baseUrl || "",
-                hours: "",
-                appointmentRequired: false,
-              },
-              warnings: {
-                commonRejections: [],
-                scams: ["Beware of unofficial agents claiming to speed up processes"],
-                whatNotToDo: ["Never pay fees to unofficial intermediaries"],
-              },
-              relatedProcedures: [],
-              additionalNotes: notes,
-              confidenceScore: 0.38,
-              confidenceReasons: [
-                "The primary AI procedure engine failed, so this uses limited government-source fallback content.",
-                "Exact steps, documents, and fees still need confirmation with the official authority.",
-              ],
-              needsMoreContext: true,
-              missingContext: ["Specific procedure subtype", "Applicant status or eligibility situation"],
-              followUpQuestions: [
-                "What exact procedure or document are you applying for?",
-                "What is your current status or nationality, if relevant?",
-              ],
-              _rawContent: fallbackContent,
-              _fallbackSource: "government_scrape",
-              _country: countryName,
-              _language: language,
-              _generatedAt: new Date().toISOString(),
-            }, { usedFallback: true });
+            procedureName: `Information about: ${procedureQuery.slice(0, 50)}`,
+            difficulty: "moderate" as const,
+            totalEstimatedTime: "Varies - check official sources",
+            summary: `Information retrieved from official government sources for ${countryName}. Please verify with official authorities for exact requirements.`,
+            detailedSummary: fallbackContent,
+            legalFoundation: {
+              lawName: "Official government sources",
+              url: sources[0]?.baseUrl || "",
+              lastVerified: new Date().toISOString().split('T')[0],
+            },
+            eligibility: {
+              eligibleGroups: ["Check with official source"],
+            },
+            steps: [],
+            requiredDocuments: [],
+            costs: {
+              governmentFees: "Varies - check official sources",
+            },
+            timeline: {
+              minimumTime: "Varies",
+              maximumTime: "Check with official source",
+            },
+            officeInfo: {
+              name: sources[0]?.name || "Contact local authorities",
+              address: "",
+              website: sources[0]?.baseUrl || "",
+              hours: "",
+              appointmentRequired: false,
+            },
+            warnings: {
+              commonRejections: [],
+              scams: ["Beware of unofficial agents claiming to speed up processes"],
+              whatNotToDo: ["Never pay fees to unofficial intermediaries"],
+            },
+            relatedProcedures: [],
+            additionalNotes: notes,
+            confidenceScore: 0.38,
+            confidenceReasons: [
+              "The primary AI procedure engine failed, so this uses limited government-source fallback content.",
+              "Exact steps, documents, and fees still need confirmation with the official authority.",
+            ],
+            needsMoreContext: true,
+            missingContext: ["Specific procedure subtype", "Applicant status or eligibility situation"],
+            followUpQuestions: [
+              "What exact procedure or document are you applying for?",
+              "What is your current status or nationality, if relevant?",
+            ],
+            _rawContent: fallbackContent,
+            _fallbackSource: "government_scrape",
+            _country: countryName,
+            _language: language,
+            _generatedAt: new Date().toISOString(),
+          }, { usedFallback: true });
           return Response.json({
             response: fallbackResponse,
           });
@@ -244,7 +244,7 @@ export async function POST(req: Request) {
       } catch (scrapeError) {
         console.warn('Government scrape fallback also failed:', scrapeError);
       }
-      
+
       return Response.json(
         {
           error: 'Failed to process question',
@@ -272,7 +272,7 @@ function parseTextResponse(content: string, question: string) {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     // Match numbered steps like "1.", "1)", "- Step", "* Step"
     const stepMatch = trimmed.match(/^(?:(\d+)[\).]|[-*]\s*(?:Step\s*)?)(.+)/i);
     if (stepMatch) {
@@ -288,13 +288,13 @@ function parseTextResponse(content: string, question: string) {
   if (currentStep) steps.push(currentStep);
 
   // Extract office info
-  let officeInfo = { 
-    name: 'Contact local authorities', 
-    address: '', 
-    website: '', 
+  let officeInfo = {
+    name: 'Contact local authorities',
+    address: '',
+    website: '',
     phone: '',
     email: '',
-    hours: '', 
+    hours: '',
     appointmentRequired: false,
     languages: [],
     jurisdiction: '',
@@ -305,7 +305,7 @@ function parseTextResponse(content: string, question: string) {
   }
 
   // Extract costs
-  let costs: { governmentFees?: string; translationCosts?: string; notarizationCosts?: string; otherCosts?: Array<{item: string, cost: string}>; paymentMethods?: string[]; totalEstimate?: string } = {};
+  let costs: { governmentFees?: string; translationCosts?: string; notarizationCosts?: string; otherCosts?: Array<{ item: string, cost: string }>; paymentMethods?: string[]; totalEstimate?: string } = {};
   const costMatch = content.match(/(?:cost|fee|price)[:\s]*[$€]?(.+?)(?:\n|$)/i);
   if (costMatch) {
     costs.governmentFees = costMatch[1].trim();
@@ -447,10 +447,10 @@ function extractTitle(content: string): string {
   // Look for markdown headers or bold text
   const headerMatch = content.match(/^#+\s*(.+)$/m);
   if (headerMatch) return headerMatch[1].trim();
-  
+
   const boldMatch = content.match(/\*\*(.+?)\*\*/);
   if (boldMatch) return boldMatch[1].trim();
-  
+
   return '';
 }
 
@@ -462,11 +462,11 @@ function extractTime(content: string): string {
     /(\d+\s*months?)/i,
     /(just\s*\d+[\s\-]*\w+)/i,
   ];
-  
+
   for (const pattern of timePatterns) {
     const match = content.match(pattern);
     if (match) return match[1].trim();
   }
-  
+
   return 'Varies - verify with official source';
 }

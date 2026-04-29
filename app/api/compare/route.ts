@@ -89,8 +89,8 @@ export async function POST(req: Request) {
       prompt: `Comparison question: ${question}
 
 Countries to compare: ${groundedCountries
-        .map((country) => country.code)
-        .join(', ')}
+          .map((country) => country.code)
+          .join(', ')}
 ${omittedCountries.length ? `\nCountries with insufficient official context: ${omittedCountries.map((country) => country.code).join(', ')}` : ''}
 
 Context from official sources per country:

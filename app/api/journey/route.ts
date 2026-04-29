@@ -284,12 +284,10 @@ export async function POST(req: Request) {
 Nationality: ${nationality || 'not specified'}
 Destination: ${COUNTRY_NAMES[to_country] || to_country}
 Purpose: ${purpose}
-Grounded procedure areas: ${
-        groundedAreas.length ? groundedAreas.join(', ') : 'none'
-      }
-Areas with limited official context: ${
-        missingAreas.length ? missingAreas.join(', ') : 'none'
-      }
+Grounded procedure areas: ${groundedAreas.length ? groundedAreas.join(', ') : 'none'
+        }
+Areas with limited official context: ${missingAreas.length ? missingAreas.join(', ') : 'none'
+        }
 
 Context from ${COUNTRY_NAMES[to_country] || to_country} official sources:
 ${context}`,

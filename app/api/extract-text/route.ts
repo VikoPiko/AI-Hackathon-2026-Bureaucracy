@@ -30,10 +30,10 @@ export async function POST(req: NextRequest) {
       'application/msword',
       'text/plain',
     ];
-    
-    const isAllowed = allowedTypes.includes(file.type) || 
+
+    const isAllowed = allowedTypes.includes(file.type) ||
       file.name.toLowerCase().match(/\.(pdf|docx|doc|txt)$/i) !== null;
-    
+
     if (!isAllowed) {
       return NextResponse.json(
         { error: 'Unsupported file type. Please upload PDF, DOCX, or TXT files.' },
